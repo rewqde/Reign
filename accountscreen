@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome!</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      overflow: hidden;
+      background: #020010;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    canvas#starfield {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+    }
+
+    /* CSS nebula layers */
+    .nebula {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(130px);
+      opacity: 0.45;
+      z-index: 1;
+      pointer-events: none;
+      animation: drift 30s ease-in-out infinite alternate;
+    }
+    .nebula.n1 {
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, #1a0a6e 0%, #0d47a1 35%, #4a148c 60%, transparent 75%);
+      top: -12%; left: -12%;
+      animation-duration: 35s;
+    }
+    .nebula.n2 {
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, #6a1b9a 0%, #1565c0 35%, #0097a7 60%, transparent 75%);
+      bottom: -15%; right: -8%;
+      animation-duration: 28s;
+      animation-delay: -8s;
+    }
+    .nebula.n3 {
+      width: 550px; height: 550px;
+      background: radial-gradient(circle, #0d47a1 0%, #8e24aa 40%, transparent 70%);
+      top: 35%; left: 50%;
+      animation-duration: 40s;
+      animation-delay: -15s;
+    }
+    .nebula.n4 {
+      width: 450px; height: 450px;
+      background: radial-gradient(circle, #283593 0%, #00bcd4 40%, transparent 70%);
+      top: 10%; right: 20%;
+      animation-duration: 32s;
+      animation-delay: -5s;
+      opacity: 0.3;
+    }
+    .nebula.n5 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, #311b92 0%, #e040fb 30%, #7c4dff 55%, transparent 75%);
+      top: 55%; left: -5%;
+      animation-duration: 38s;
+      animation-delay: -12s;
+      opacity: 0.2;
+    }
+    .nebula.n6 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #004d73 0%, #00acc1 35%, #1de9b6 60%, transparent 75%);
+      top: -5%; right: -5%;
+      animation-duration: 42s;
+      animation-delay: -20s;
+      opacity: 0.18;
+    }
+
+    @keyframes drift {
+      0%   { transform: translate(0, 0) scale(1); }
+      25%  { transform: translate(50px, -40px) scale(1.08); }
+      50%  { transform: translate(-30px, 60px) scale(0.93); }
+      75%  { transform: translate(40px, 25px) scale(1.1); }
+      100% { transform: translate(-50px, -50px) scale(1); }
+    }
+
+    /* Horizon glow */
+    .horizon-glow {
+      position: fixed;
+      bottom: -80px; left: -10%;
+      width: 120%; height: 220px;
+      background: radial-gradient(ellipse at 50% 100%, rgba(100, 50, 200, 0.25) 0%, rgba(30, 60, 180, 0.12) 40%, transparent 70%);
+      z-index: 2;
+      pointer-events: none;
+      filter: blur(40px);
+    }
+
+    /* Shooting star CSS layer */
+    .shooting-star-layer {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .shooting-star {
+      position: absolute;
+      width: 150px;
+      height: 2px;
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(180,210,255,0.95), rgba(200,170,255,0.6), rgba(255,255,255,0));
+      border-radius: 50%;
+      opacity: 0;
+      transform: rotate(-35deg);
+      animation: shoot 4s ease-in infinite;
+      filter: drop-shadow(0 0 6px rgba(150,180,255,0.6));
+    }
+    .shooting-star:nth-child(1) { top: 12%; left: 70%; animation-delay: 1s;  animation-duration: 3.5s; }
+    .shooting-star:nth-child(2) { top: 25%; left: 40%; animation-delay: 5s;  animation-duration: 4.2s; }
+    .shooting-star:nth-child(3) { top: 8%;  left: 85%; animation-delay: 9s;  animation-duration: 3.8s; }
+    .shooting-star:nth-child(4) { top: 45%; left: 55%; animation-delay: 14s; animation-duration: 4.5s; }
+    .shooting-star:nth-child(5) { top: 18%; left: 20%; animation-delay: 7s;  animation-duration: 3.2s; }
+    .shooting-star:nth-child(6) { top: 35%; left: 10%; animation-delay: 11s; animation-duration: 3.9s; }
+    .shooting-star:nth-child(7) { top: 5%;  left: 50%; animation-delay: 18s; animation-duration: 4.1s; }
+
+    @keyframes shoot {
+      0%   { opacity: 0; transform: rotate(-35deg) translate(0, 0); }
+      5%   { opacity: 1; }
+      15%  { opacity: 1; }
+      20%  { opacity: 0; transform: rotate(-35deg) translate(-500px, 300px); }
+      100% { opacity: 0; }
+    }
+
+    /* Content overlay */
+    .content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 30vh;
+      height: 100vh;
+      color: #e0e8ff;
+      text-align: center;
+      text-shadow: 0 0 30px rgba(100, 150, 255, 0.5);
+    }
+    .content h1 {
+      font-size: clamp(2.5rem, 7vw, 5.5rem);
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      margin-bottom: 0.2em;
+      animation: fadeInUp 2s ease-out, titleGlow 4s ease-in-out 2s infinite alternate;
+      background: linear-gradient(135deg, #90caf9, #ce93d8, #80d8ff, #b388ff);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 30px rgba(130, 100, 255, 0.4));
+    }
+
+    @keyframes titleGlow {
+      0%   { filter: drop-shadow(0 0 30px rgba(130, 100, 255, 0.3)); background-position: 0% 50%; }
+      50%  { filter: drop-shadow(0 0 50px rgba(180, 130, 255, 0.5)); background-position: 100% 50%; }
+      100% { filter: drop-shadow(0 0 30px rgba(100, 150, 255, 0.3)); background-position: 0% 50%; }
+    }
+    .content p {
+      font-size: clamp(0.9rem, 2vw, 1.3rem);
+      font-weight: 300;
+      opacity: 0.7;
+      letter-spacing: 0.3em;
+      animation: fadeInUp 2s 0.5s ease-out both;
+    }
+    .button {
+      display: flex;
+      gap: 1em;
+      padding-top: 1em;
+    }
+    .btn-glass {
+      position: relative;
+      overflow: hidden;
+      padding: 0.85rem 2.4rem;
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      font-family: inherit;
+      color: #e0e8ff;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(144, 202, 249, 0.3);
+      border-radius: 50px;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 15px rgba(100, 150, 255, 0.15),
+                  0 0 30px rgba(100, 150, 255, 0.08),
+                  inset 0 0 20px rgba(100, 150, 255, 0.03);
+      transition: background 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  border-color 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  box-shadow 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  color 0.3s ease;
+    }
+
+    /* Ripple pseudo-element */
+    .btn-glass::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 0; height: 0;
+      background: rgba(144, 202, 249, 0.3);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: width 0.6s ease, height 0.6s ease, opacity 0.6s ease;
+    }
+    .btn-glass.ripple::after {
+      width: 300px; height: 300px;
+      opacity: 0;
+    }
+
+    .btn-glass:hover {
+      background: rgba(144, 202, 249, 0.14);
+      border-color: rgba(144, 202, 249, 0.7);
+      box-shadow: 0 0 20px rgba(100, 150, 255, 0.35),
+                  0 0 40px rgba(100, 150, 255, 0.18),
+                  0 0 80px rgba(130, 100, 255, 0.08),
+                  inset 0 0 30px rgba(100, 150, 255, 0.06);
+      transform: translateY(-3px);
+      color: #fff;
+    }
+
+    .btn-glass:active {
+      transform: translateY(0px) scale(0.96);
+      box-shadow: 0 0 10px rgba(100, 150, 255, 0.2);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    /* Loading spinner state */
+    .btn-glass.loading {
+      pointer-events: none;
+      color: transparent;
+      min-width: 120px;
+    }
+    .btn-glass.loading::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 20px; height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid rgba(144, 202, 249, 0.3);
+      border-top-color: #90caf9;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Auth form panels ─────────────────────── */
+    .auth-wrapper {
+      position: relative;
+      width: 340px;
+      min-height: 60px;
+      padding: 1.5em;
+      background: rgba(10, 10, 40, 0.35);
+      border: 1px solid rgba(144, 202, 249, 0.1);
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3),
+                  0 0 60px rgba(80, 80, 200, 0.06);
+    }
+
+    .auth-buttons,
+    .auth-form {
+      transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .auth-buttons {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+    }
+    .auth-buttons.hidden {
+      opacity: 0;
+      transform: translateY(-18px) scale(0.95);
+      pointer-events: none;
+      position: absolute;
+      width: 100%;
+    }
+
+    .auth-form {
+      opacity: 0;
+      transform: translateY(18px) scale(0.95);
+      pointer-events: none;
+      position: absolute;
+      width: 100%;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.9em;
+    }
+    .auth-form.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    .auth-form h2 {
+      font-size: 1.3rem;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      background: linear-gradient(135deg, #90caf9, #ce93d8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.2em;
+    }
+
+    .input-glass {
+      width: 100%;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      letter-spacing: 0.05em;
+      color: #e0e8ff;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(144, 202, 249, 0.2);
+      border-radius: 14px;
+      outline: none;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    }
+    .input-glass::placeholder {
+      color: rgba(180, 200, 240, 0.4);
+    }
+    .input-glass:focus {
+      border-color: rgba(144, 202, 249, 0.6);
+      box-shadow: 0 0 20px rgba(100, 150, 255, 0.25),
+                  0 0 40px rgba(130, 100, 255, 0.08);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .btn-back {
+      background: none;
+      border: none;
+      color: rgba(144, 202, 249, 0.6);
+      font-family: inherit;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      margin-top: 0.3em;
+      transition: color 0.3s ease;
+    }
+    .btn-back:hover {
+      color: #90caf9;
+    }
+
+    /* Error & toast messages */
+    .auth-error {
+      font-size: 0.82rem;
+      color: #ff6b6b;
+      text-shadow: none;
+      min-height: 1.2em;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(60, 200, 120, 0.15);
+      border: 1px solid rgba(60, 200, 120, 0.4);
+      color: #6fecaa;
+      font-size: 0.9rem;
+      padding: 10px 24px;
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.error {
+      background: rgba(255, 80, 80, 0.15);
+      border-color: rgba(255, 80, 80, 0.4);
+      color: #ff8a8a;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas for animated stars -->
+  <canvas id="starfield"></canvas>
+
+  <!-- Nebula glow layers -->
+  <div class="nebula n1"></div>
+  <div class="nebula n2"></div>
+  <div class="nebula n3"></div>
+  <div class="nebula n4"></div>
+  <div class="nebula n5"></div>
+  <div class="nebula n6"></div>
+
+  <!-- Horizon glow -->
+  <div class="horizon-glow"></div>
+
+  <!-- Shooting stars -->
+  <div class="shooting-star-layer">
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+    <div class="shooting-star"></div>
+  </div>
+
+<div class="content">
+  <h1>REIGN</h1>
+
+  <div class="auth-wrapper">
+    <!-- Buttons (default view) -->
+    <div class="auth-buttons" id="authButtons">
+      <button class="btn-glass btn-login">Login</button>
+      <button class="btn-glass btn-signup">Sign Up</button>
+    </div>
+
+    <!-- Login form -->
+    <form class="auth-form" id="loginForm">
+      <h2>Login</h2>
+      <input class="input-glass" id="loginUser" type="text" placeholder="Username" autocomplete="username" required />
+      <input class="input-glass" id="loginPass" type="password" placeholder="Password" autocomplete="current-password" required />
+      <div class="auth-error" id="loginError"></div>
+      <button class="btn-glass" type="submit" style="width:100%" id="loginBtn">Login</button>
+      <button class="btn-back" type="button" onclick="showButtons()">&#8592; Back</button>
+    </form>
+
+    <!-- Sign-up form -->
+    <form class="auth-form" id="signupForm">
+      <h2>Sign Up</h2>
+      <input class="input-glass" id="signupName" type="text" placeholder="Username" autocomplete="username" required />
+      <input class="input-glass" id="signupPass" type="password" placeholder="Password" autocomplete="new-password" required />
+      <input class="input-glass" id="signupConfirm" type="password" placeholder="Confirm Password" autocomplete="new-password" required />
+      <div class="auth-error" id="signupError"></div>
+      <button class="btn-glass" type="submit" style="width:100%" id="signupBtn">Create Account</button>
+      <button class="btn-back" type="button" onclick="showButtons()">&#8592; Back</button>
+    </form>
+  </div>
+</div>
+
+  <script>
+    // ─── CONFIG ──────────────────────────────────────────
+    const STAR_COUNT       = 1800;
+    const STAR_SPEED       = 0.12;          // base drift speed
+    const TWINKLE_SPEED    = 0.007;         // alpha oscillation pace
+    const DEPTH_LAYERS     = 4;
+    const MOUSE_PARALLAX   = 0.025;         // subtle parallax on mouse
+    const COLORS           = [
+      '180,200,255',   // cool white-blue
+      '140,170,255',   // soft blue
+      '200,180,255',   // lavender
+      '100,200,255',   // cyan tint
+      '255,255,255',   // pure white
+      '220,160,255',   // violet
+      '160,220,255',   // ice blue
+      '255,200,220',   // faint rose
+    ];
+
+    // ─── SETUP ───────────────────────────────────────────
+    const canvas = document.getElementById('starfield');
+    const ctx    = canvas.getContext('2d');
+    let W, H;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ─── MOUSE TRACKING ─────────────────────────────────
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', e => {
+      mouseX = (e.clientX / W - 0.5) * 2;   // -1 … 1
+      mouseY = (e.clientY / H - 0.5) * 2;
+    });
+
+    // ─── STAR CLASS ──────────────────────────────────────
+    class Star {
+      constructor() { this.reset(true); }
+      reset(initial) {
+        this.layer  = Math.floor(Math.random() * DEPTH_LAYERS) + 1;
+        this.x      = Math.random() * W;
+        this.y      = initial ? Math.random() * H : -5;
+        this.size   = (Math.random() * 2.0 + 0.2) * (this.layer / DEPTH_LAYERS);
+        this.color  = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.alpha  = Math.random();
+        this.tw     = Math.random() * Math.PI * 2;
+        this.twAmp  = Math.random() * 0.5 + 0.3;
+        this.speed  = (STAR_SPEED + Math.random() * 0.08) * this.layer;
+        this.drift  = (Math.random() - 0.5) * 0.12 * this.layer;
+        // rare bright "feature" star
+        this.isBright = Math.random() < 0.008;
+        if (this.isBright) {
+          this.size  = Math.random() * 1.5 + 2.0;
+          this.twAmp = Math.random() * 0.3 + 0.6;
+        }
+      }
+      update() {
+        this.tw    += TWINKLE_SPEED * this.layer;
+        this.alpha  = 0.5 + this.twAmp * Math.sin(this.tw);
+        this.y     += this.speed;
+        this.x     += this.drift;
+
+        const px = mouseX * MOUSE_PARALLAX * this.layer * 10;
+        const py = mouseY * MOUSE_PARALLAX * this.layer * 10;
+
+        if (this.y > H + 5 || this.x < -10 || this.x > W + 10) this.reset(false);
+        this._drawX = this.x + px;
+        this._drawY = this.y + py;
+      }
+      draw() {
+        const x = this._drawX, y = this._drawY;
+        ctx.beginPath();
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${this.color},${this.alpha.toFixed(2)})`;
+        ctx.fill();
+
+        // cross-shaped rays on bright stars
+        if (this.isBright) {
+          const rayLen = this.size * 6 * this.alpha;
+          const grad = ctx.createRadialGradient(x, y, 0, x, y, rayLen);
+          grad.addColorStop(0, `rgba(${this.color},${(this.alpha * 0.5).toFixed(2)})`);
+          grad.addColorStop(1, `rgba(${this.color},0)`);
+          ctx.fillStyle = grad;
+          // horizontal ray
+          ctx.fillRect(x - rayLen, y - 0.5, rayLen * 2, 1);
+          // vertical ray
+          ctx.fillRect(x - 0.5, y - rayLen, 1, rayLen * 2);
+        }
+
+        // soft glow for larger stars
+        if (this.size > 1.0) {
+          ctx.beginPath();
+          ctx.arc(x, y, this.size * 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${this.color},${(this.alpha * 0.1).toFixed(3)})`;
+          ctx.fill();
+        }
+      }
+    }
+
+    // ─── INIT STARS ──────────────────────────────────────
+    const stars = Array.from({ length: STAR_COUNT }, () => new Star());
+
+    // ─── CANVAS NEBULA CLOUDS ─────────────────────────
+    // Pre-render soft nebula blobs on a separate canvas
+    const nebulaCanvas = document.createElement('canvas');
+    const nCtx = nebulaCanvas.getContext('2d');
+    let nebulaReady = false;
+
+    function renderCanvasNebula() {
+      nebulaCanvas.width  = W;
+      nebulaCanvas.height = H;
+      const blobs = [
+        { x: W * 0.2,  y: H * 0.3,  r: 250, c: 'rgba(40, 20, 120, 0.08)' },
+        { x: W * 0.75, y: H * 0.6,  r: 300, c: 'rgba(20, 60, 140, 0.06)' },
+        { x: W * 0.5,  y: H * 0.15, r: 200, c: 'rgba(80, 30, 140, 0.05)' },
+        { x: W * 0.85, y: H * 0.2,  r: 180, c: 'rgba(0, 100, 130, 0.04)' },
+        { x: W * 0.35, y: H * 0.7,  r: 220, c: 'rgba(50, 10, 100, 0.06)' },
+      ];
+      for (const b of blobs) {
+        const g = nCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+        g.addColorStop(0, b.c);
+        g.addColorStop(1, 'transparent');
+        nCtx.fillStyle = g;
+        nCtx.fillRect(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2);
+      }
+      nebulaReady = true;
+    }
+    renderCanvasNebula();
+    window.addEventListener('resize', renderCanvasNebula);
+
+    // ─── RENDER LOOP ─────────────────────────────────
+    function frame() {
+      ctx.clearRect(0, 0, W, H);
+      // draw canvas nebula layer underneath
+      if (nebulaReady) ctx.drawImage(nebulaCanvas, 0, 0);
+      for (const s of stars) { s.update(); s.draw(); }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // ─── PANEL SWITCHING ─────────────────────────────
+    const authButtons = document.getElementById('authButtons');
+    const loginForm   = document.getElementById('loginForm');
+    const signupForm  = document.getElementById('signupForm');
+
+    function showButtons() {
+      loginForm.classList.remove('visible');
+      signupForm.classList.remove('visible');
+      authButtons.classList.remove('hidden');
+    }
+
+    function showLogin() {
+      authButtons.classList.add('hidden');
+      signupForm.classList.remove('visible');
+      // tiny delay so the exit animation plays first
+      setTimeout(() => loginForm.classList.add('visible'), 80);
+    }
+
+    function showSignup() {
+      authButtons.classList.add('hidden');
+      loginForm.classList.remove('visible');
+      setTimeout(() => signupForm.classList.add('visible'), 80);
+    }
+
+    document.querySelector('.btn-login').addEventListener('click', showLogin);
+    document.querySelector('.btn-signup').addEventListener('click', showSignup);
+
+    // ─── RIPPLE ON ALL GLASS BUTTONS ─────────────────
+    document.querySelectorAll('.btn-glass').forEach(btn => {
+      btn.addEventListener('click', function () {
+        this.classList.remove('ripple');
+        void this.offsetWidth;
+        this.classList.add('ripple');
+        setTimeout(() => this.classList.remove('ripple'), 600);
+      });
+    });
+  </script>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ═══ FIREBASE AUTH ═══ -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+    // ─── Firebase init ──────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyAc20a6CkTHFHAGZsbjdP8XZYBflxPe7wo",
+      authDomain: "reign-ca200.firebaseapp.com",
+      projectId: "reign-ca200",
+      storageBucket: "reign-ca200.firebasestorage.app",
+      messagingSenderId: "349163251303",
+      appId: "1:349163251303:web:3f970dc8b9bd439a3f56c2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // ─── Helpers ────────────────────────────────────
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => t.className = 'toast', 3000);
+    }
+
+    function setLoading(btn, loading) {
+      btn.classList.toggle('loading', loading);
+      btn.disabled = loading;
+    }
+
+    // ─── If already logged in, skip to chat ────────
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        window.location.href = 'messagepage.html';
+      }
+    });
+
+    // ─── SIGN UP ────────────────────────────────────
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name    = document.getElementById('signupName').value.trim();
+      const pass    = document.getElementById('signupPass').value;
+      const confirm = document.getElementById('signupConfirm').value;
+      const errEl   = document.getElementById('signupError');
+      const btn     = document.getElementById('signupBtn');
+
+      errEl.textContent = '';
+
+      if (!name) { errEl.textContent = 'Username is required'; return; }
+      if (/[^a-zA-Z0-9_]/.test(name)) { errEl.textContent = 'Username: letters, numbers, underscores only'; return; }
+      if (pass.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+      if (pass !== confirm) { errEl.textContent = 'Passwords do not match'; return; }
+
+      const fakeEmail = name.toLowerCase() + '@reign.app';
+
+      setLoading(btn, true);
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
+        await cred.user.updateProfile({ displayName: name });
+        showToast('Account created! Redirecting...');
+        setTimeout(() => window.location.href = 'messagepage.html', 1000);
+      } catch (err) {
+        errEl.textContent = firebaseErrorMsg(err.code);
+        setLoading(btn, false);
+      }
+    });
+
+    // ─── LOGIN ──────────────────────────────────────
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('loginUser').value.trim();
+      const pass     = document.getElementById('loginPass').value;
+      const errEl    = document.getElementById('loginError');
+      const btn      = document.getElementById('loginBtn');
+
+      errEl.textContent = '';
+      if (!username) { errEl.textContent = 'Username is required'; return; }
+
+      const fakeEmail = username.toLowerCase() + '@reign.app';
+
+      setLoading(btn, true);
+      try {
+        await auth.signInWithEmailAndPassword(fakeEmail, pass);
+        showToast('Welcome back! Redirecting...');
+        setTimeout(() => window.location.href = 'messagepage.html', 800);
+      } catch (err) {
+        errEl.textContent = firebaseErrorMsg(err.code);
+        setLoading(btn, false);
+      }
+    });
+
+    // ─── Friendly error messages ────────────────────
+    function firebaseErrorMsg(code) {
+      const map = {
+        'auth/email-already-in-use':  'That username is already taken',
+        'auth/invalid-email':         'Invalid username',
+        'auth/weak-password':         'Password is too weak (min 6 chars)',
+        'auth/user-not-found':        'No account with that username',
+        'auth/wrong-password':        'Incorrect password',
+        'auth/invalid-credential':    'Invalid username or password',
+        'auth/too-many-requests':     'Too many attempts — try again later',
+        'auth/network-request-failed':'Network error — check your connection',
+      };
+      return map[code] || 'Something went wrong, please try again';
+    }
+  </script>
+
+</body>
+</html>
