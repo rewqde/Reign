@@ -1,0 +1,2844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reign — Chat</title>
+  <style>
+    /* ══════════ RESET & BASE ══════════ */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-darkest:  #0a0a1a;
+      --bg-darker:   #0d1025;
+      --bg-dark:     #111430;
+      --bg-medium:   #181c40;
+      --bg-light:    #1e2350;
+      --accent:      #90caf9;
+      --accent2:     #ce93d8;
+      --text:        #e0e8ff;
+      --text-dim:    rgba(200, 210, 230, 0.5);
+      --text-muted:  rgba(200, 210, 230, 0.3);
+      --danger:      #ff6b6b;
+      --online:      #3edd7c;
+      --idle:        #faa61a;
+      --dnd:         #f04747;
+      --offline:     #747f8d;
+      --role-admin:  #ff6b6b;
+      --role-mod:    #ce93d8;
+      --role-member: #90caf9;
+      --radius:      8px;
+      --radius-lg:   12px;
+      --transition:  0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-darkest);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(144,202,249,0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(144,202,249,0.22); }
+
+    /* ══════════ LAYOUT — no server rail ══════════ */
+    .app {
+      display: grid;
+      grid-template-columns: 250px 1fr 260px;
+      height: 100vh;
+    }
+
+    /* ══════════ SIDEBAR ══════════ */
+    .sidebar {
+      background: linear-gradient(180deg, var(--bg-darker) 0%, rgba(13,16,37,0.95) 100%);
+      display: flex; flex-direction: column;
+      border-right: 1px solid rgba(144,202,249,0.06);
+      position: relative; overflow: hidden;
+    }
+    .sidebar::before {
+      content:''; position:absolute; width:300px; height:300px;
+      background: radial-gradient(circle, rgba(144,202,249,0.06) 0%, transparent 70%);
+      top:-80px; left:-80px; border-radius:50%; pointer-events:none;
+    }
+    .sidebar::after {
+      content:''; position:absolute; width:250px; height:250px;
+      background: radial-gradient(circle, rgba(206,147,216,0.05) 0%, transparent 70%);
+      bottom:40px; right:-60px; border-radius:50%; pointer-events:none;
+    }
+    .sidebar-header {
+      padding:18px 16px; font-size:1.1rem; font-weight:700; letter-spacing:.12em;
+      border-bottom:1px solid rgba(144,202,249,0.08);
+      display:flex; align-items:center; justify-content:space-between;
+      background: linear-gradient(135deg,#90caf9,#ce93d8,#80d8ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      position:relative; z-index:1;
+    }
+    .sidebar-tabs {
+      display:flex; border-bottom:1px solid rgba(144,202,249,0.06); position:relative; z-index:1;
+    }
+    .sidebar-tab {
+      flex:1; padding:11px; text-align:center; font-size:.75rem; font-weight:600;
+      letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim);
+      cursor:pointer; border-bottom:2px solid transparent;
+      transition: color var(--transition), border-color var(--transition);
+    }
+    .sidebar-tab:hover { color:var(--text); }
+    .sidebar-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .sidebar-content { flex:1; overflow-y:auto; padding:8px; position:relative; z-index:1; }
+    .channel-group-title {
+      font-size:.68rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); padding:16px 8px 4px;
+    }
+    .channel-item {
+      display:flex; align-items:center; gap:8px; padding:7px 10px;
+      border-radius:var(--radius); cursor:pointer; color:var(--text-dim);
+      font-size:.88rem; transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+    }
+    .channel-item:hover { background:rgba(144,202,249,0.06); color:var(--text); }
+    .channel-item.active {
+      background:rgba(144,202,249,0.1); color:#fff;
+      box-shadow:0 0 12px rgba(144,202,249,0.08);
+    }
+    .channel-item .hash { font-size:1.1rem; font-weight:700; opacity:.35; width:20px; text-align:center; }
+    .channel-item.active .hash { opacity:.8; color:var(--accent); }
+    .channel-item .voice-icon { opacity:.35; font-size:1rem; }
+    .dm-item {
+      display:flex; align-items:center; gap:10px; padding:8px 10px;
+      border-radius:var(--radius); cursor:pointer; transition: background var(--transition);
+    }
+    .dm-item:hover { background:rgba(144,202,249,0.06); }
+    .dm-item.active { background:rgba(144,202,249,0.1); }
+    .dm-avatar {
+      width:32px; height:32px; border-radius:50%; background:var(--bg-light);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.8rem; font-weight:600; color:var(--accent); flex-shrink:0;
+      position:relative; overflow:visible;
+    }
+    .dm-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .dm-avatar .status-dot {
+      position:absolute; bottom:-1px; right:-1px; width:10px; height:10px;
+      border-radius:50%; border:2px solid var(--bg-darker); z-index:2;
+    }
+    .user-panel {
+      display:flex; align-items:center; gap:10px; padding:10px 14px;
+      background:rgba(0,0,0,0.3); border-top:1px solid rgba(144,202,249,0.06);
+      position:relative; z-index:1;
+    }
+    .user-panel .dm-avatar { width:36px; height:36px; cursor:pointer; }
+    .user-panel .user-name { font-size:.85rem; font-weight:600; }
+    .user-panel .user-tag { font-size:.68rem; color:var(--text-muted); }
+    .user-panel-icons { margin-left:auto; display:flex; gap:4px; position:relative; }
+    .user-panel-icons button {
+      background:none; border:none; color:var(--text-dim); font-size:.95rem;
+      cursor:pointer; padding:5px; border-radius:6px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .user-panel-icons button:hover { background:rgba(144,202,249,0.1); color:var(--text); }
+
+    /* Settings dropdown */
+    .settings-dropdown {
+      display:none; position:absolute; bottom:calc(100% + 8px); right:0;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.12);
+      border-radius:var(--radius-lg); padding:6px; z-index:50;
+      min-width:180px; box-shadow:0 8px 30px rgba(0,0,0,0.5);
+      animation: settingsIn 0.18s ease;
+    }
+    .settings-dropdown.open { display:block; }
+    @keyframes settingsIn {
+      from { opacity:0; transform:translateY(6px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .settings-item {
+      display:flex; align-items:center; gap:10px; padding:8px 12px;
+      border-radius:var(--radius); cursor:pointer; font-size:.82rem;
+      color:var(--text-dim); transition: background var(--transition), color var(--transition);
+      border:none; background:none; width:100%; text-align:left; font-family:inherit;
+    }
+    .settings-item:hover { background:rgba(144,202,249,0.08); color:var(--text); }
+    .settings-item .settings-icon { font-size:1rem; width:20px; text-align:center; }
+    .settings-item.away-active { color:var(--idle); }
+    .settings-item.away-active:hover { background:rgba(250,166,26,0.1); }
+    .settings-item.notif-on { color:var(--online); }
+    .settings-item.notif-on:hover { background:rgba(62,221,124,0.1); }
+    .settings-divider { height:1px; background:rgba(144,202,249,0.08); margin:4px 6px; }
+
+    /* Toast notifications */
+    .toast-container {
+      position:fixed; top:16px; right:16px; z-index:200;
+      display:flex; flex-direction:column; gap:8px; pointer-events:none;
+    }
+    .toast {
+      display:flex; align-items:center; gap:10px; padding:10px 16px;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.15);
+      border-radius:var(--radius-lg); min-width:260px; max-width:360px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(144,202,249,0.06);
+      pointer-events:auto; animation: toastIn 0.3s ease, toastOut 0.4s ease 3.6s forwards;
+    }
+    @keyframes toastIn {
+      from { opacity:0; transform:translateX(40px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity:1; transform:translateX(0); }
+      to   { opacity:0; transform:translateX(40px); }
+    }
+    .toast-avatar {
+      width:28px; height:28px; border-radius:50%; background:var(--bg-light);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.7rem; font-weight:700; color:var(--accent); flex-shrink:0; overflow:hidden;
+    }
+    .toast-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .toast-body { flex:1; min-width:0; }
+    .toast-author { font-size:.78rem; font-weight:600; color:var(--accent); }
+    .toast-channel { font-size:.65rem; color:var(--text-muted); margin-left:6px; }
+    .toast-text { font-size:.78rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .toast-close {
+      background:none; border:none; color:var(--text-muted); font-size:.9rem;
+      cursor:pointer; padding:2px 4px; border-radius:4px; flex-shrink:0;
+      transition: color var(--transition);
+    }
+    .toast-close:hover { color:var(--text); }
+
+    /* @mention highlight */
+    .mention {
+      background:rgba(144,202,249,0.15); color:var(--accent); padding:0 3px;
+      border-radius:4px; font-weight:600; cursor:pointer;
+    }
+    .mention:hover { background:rgba(144,202,249,0.28); }
+    .mention.mention-me { background:rgba(250,166,26,0.2); color:#faa61a; }
+    .mention.mention-me:hover { background:rgba(250,166,26,0.35); }
+    .message.pinged { background:rgba(250,166,26,0.06); border-left:3px solid var(--idle); }
+
+    /* Mention autocomplete */
+    .mention-autocomplete {
+      display:none; position:absolute; bottom:calc(100% + 4px); left:50px;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.12);
+      border-radius:var(--radius-lg); padding:4px; z-index:40;
+      min-width:200px; max-height:180px; overflow-y:auto;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    }
+    .mention-autocomplete.open { display:block; }
+    .mention-option {
+      display:flex; align-items:center; gap:8px; padding:6px 10px;
+      border-radius:var(--radius); cursor:pointer; font-size:.82rem;
+      color:var(--text-dim); transition: background var(--transition);
+    }
+    .mention-option:hover, .mention-option.selected { background:rgba(144,202,249,0.1); color:var(--text); }
+    .mention-option-avatar {
+      width:22px; height:22px; border-radius:50%; background:var(--bg-light);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.6rem; font-weight:700; color:var(--accent); overflow:hidden; flex-shrink:0;
+    }
+    .mention-option-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+
+    /* DM badge */
+    .dm-unread {
+      margin-left:auto; min-width:18px; height:18px; border-radius:9px;
+      background:var(--accent); color:var(--bg-darkest); font-size:.65rem;
+      font-weight:700; display:flex; align-items:center; justify-content:center;
+      padding:0 5px;
+    }
+
+    /* ══════════ CHAT AREA ══════════ */
+    .chat-area {
+      display:flex; flex-direction:column;
+      background: linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-darkest) 100%);
+      position:relative; min-height:0; overflow:hidden;
+    }
+    .chat-area::before {
+      content:''; position:absolute; width:500px; height:500px;
+      background: radial-gradient(circle, rgba(144,202,249,0.03) 0%, transparent 70%);
+      top:30%; right:-100px; border-radius:50%; pointer-events:none;
+    }
+    .chat-header {
+      display:flex; align-items:center; gap:10px; padding:14px 20px;
+      border-bottom:1px solid rgba(144,202,249,0.06); font-weight:600; flex-shrink:0;
+      backdrop-filter:blur(8px); background:rgba(17,20,48,0.6); position:relative; z-index:2;
+    }
+    .chat-header .hash { font-size:1.3rem; opacity:.3; color:var(--accent); }
+    .chat-header .channel-name { font-size:1rem; }
+    .chat-header .channel-topic {
+      font-size:.78rem; color:var(--text-muted); font-weight:400;
+      margin-left:12px; padding-left:12px; border-left:1px solid rgba(144,202,249,0.1);
+    }
+    .messages {
+      flex:1; overflow-y:auto; padding:16px 20px;
+      display:flex; flex-direction:column; gap:4px; position:relative; z-index:1;
+      min-height:0;
+    }
+    .welcome-msg { text-align:center; padding:40px 20px; color:var(--text-muted); }
+    .welcome-msg h3 {
+      font-size:1.2rem; font-weight:400; color:var(--text-dim); margin-bottom:6px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .welcome-msg p { font-size:.85rem; }
+    .message {
+      display:flex; gap:12px; padding:6px 8px; border-radius:var(--radius);
+      transition: background var(--transition); position:relative;
+    }
+    .message:hover { background:rgba(144,202,249,0.03); }
+    .message:hover .msg-actions { opacity:1; transform:translateY(0); }
+    .msg-avatar {
+      width:40px; height:40px; border-radius:50%; background:var(--bg-medium);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:.9rem; color:var(--accent); flex-shrink:0;
+      margin-top:2px; overflow:hidden;
+    }
+    .msg-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .msg-body { flex:1; min-width:0; }
+    .msg-header { display:flex; align-items:baseline; gap:8px; margin-bottom:2px; }
+    .msg-author { font-size:.92rem; font-weight:600; cursor:pointer; }
+    .msg-author:hover { text-decoration:underline; }
+    .msg-role-badge {
+      font-size:.6rem; font-weight:700; padding:1px 6px; border-radius:4px;
+      text-transform:uppercase; letter-spacing:.04em;
+    }
+    .msg-time { font-size:.68rem; color:var(--text-muted); }
+    .msg-text { font-size:.9rem; line-height:1.5; color:rgba(224,232,255,0.82); word-break:break-word; }
+    .msg-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+    .reaction {
+      display:flex; align-items:center; gap:5px; padding:2px 8px;
+      border-radius:12px; background:rgba(144,202,249,0.08);
+      border:1px solid rgba(144,202,249,0.15); font-size:.8rem;
+      cursor:pointer; transition: background var(--transition), border-color var(--transition);
+      user-select:none;
+    }
+    .reaction:hover { background:rgba(144,202,249,0.16); border-color:rgba(144,202,249,0.3); }
+    .reaction.reacted { background:rgba(144,202,249,0.18); border-color:var(--accent); }
+    .reaction .count { font-size:.73rem; font-weight:600; }
+    .msg-actions {
+      position:absolute; top:-14px; right:8px; display:flex; gap:2px;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.1);
+      border-radius:var(--radius); padding:2px;
+      opacity:0; transform:translateY(4px);
+      transition: opacity var(--transition), transform var(--transition); z-index:5;
+    }
+    .msg-action-btn {
+      background:none; border:none; color:var(--text-dim); font-size:.95rem;
+      padding:4px 7px; border-radius:4px; cursor:pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .msg-action-btn:hover { background:rgba(144,202,249,0.1); color:var(--text); }
+    .emoji-picker {
+      display:none; position:absolute; bottom:calc(100% + 6px); right:0;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.12);
+      border-radius:var(--radius-lg); padding:8px; z-index:20;
+      gap:4px; flex-wrap:wrap; width:210px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    }
+    .emoji-picker.open { display:flex; }
+    .emoji-pick {
+      font-size:1.3rem; padding:4px 6px; border-radius:6px;
+      cursor:pointer; transition: background var(--transition); border:none; background:none;
+    }
+    .emoji-pick:hover { background:rgba(144,202,249,0.1); }
+    /* Global emoji picker (input bar) */
+    .global-emoji-picker {
+      display:none; position:absolute; bottom:calc(100% + 8px); right:40px;
+      background:var(--bg-darker); border:1px solid rgba(144,202,249,0.12);
+      border-radius:var(--radius-lg); padding:8px; z-index:30;
+      gap:4px; flex-wrap:wrap; width:240px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+    }
+    .global-emoji-picker.open { display:flex; }
+    .global-emoji-picker button {
+      font-size:1.3rem; padding:4px 6px; border-radius:6px;
+      cursor:pointer; transition: background var(--transition); border:none; background:none;
+    }
+    .global-emoji-picker button:hover { background:rgba(144,202,249,0.1); }
+    /* Delete button */
+    .delete-btn { color:var(--text-dim) !important; }
+    .delete-btn:hover { color:#ef5350 !important; background:rgba(239,83,80,0.1) !important; }
+    .messages { scroll-behavior:smooth; }
+    /* Reply banner */
+    .reply-banner {
+      display:flex; align-items:center; gap:10px; padding:6px 16px;
+      background:rgba(144,202,249,0.06); border-left:3px solid var(--accent);
+      font-size:.82rem; color:var(--text-dim); flex-shrink:0; position:relative; z-index:2;
+    }
+    .reply-banner .reply-author { font-weight:600; color:var(--accent); }
+    .reply-banner .reply-text { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-muted); }
+    .reply-banner .reply-close {
+      background:none; border:none; color:var(--text-muted); font-size:1rem;
+      cursor:pointer; padding:2px 6px; border-radius:4px;
+      transition: color var(--transition), background var(--transition);
+    }
+    .reply-banner .reply-close:hover { color:var(--text); background:rgba(144,202,249,0.1); }
+    /* Reply ref in message */
+    .msg-reply-ref {
+      display:flex; align-items:center; gap:6px; padding:2px 0 4px 12px;
+      font-size:.76rem; color:var(--text-muted); border-left:2px solid rgba(144,202,249,0.2);
+      margin-bottom:2px; cursor:pointer;
+    }
+    .msg-reply-ref:hover { color:var(--text-dim); }
+    .msg-reply-ref .reply-ref-author { font-weight:600; color:var(--accent); }
+
+    /* Members tabs */
+    .members-tabs {
+      display:flex; border-bottom:1px solid rgba(144,202,249,0.06);
+      margin-bottom:8px; position:relative; z-index:1;
+    }
+    .members-tab {
+      flex:1; padding:9px 4px; text-align:center; font-size:.68rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted);
+      cursor:pointer; border-bottom:2px solid transparent;
+      transition: color var(--transition), border-color var(--transition);
+    }
+    .members-tab:hover { color:var(--text-dim); }
+    .members-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .offline-member .member-avatar { opacity:.5; }
+    .offline-member .member-name { color:var(--text-muted); }
+
+    .chat-input-wrapper { padding:0 16px 16px; flex-shrink:0; position:relative; z-index:2; }
+    .chat-input-bar {
+      display:flex; align-items:center; gap:10px;
+      background:rgba(24,28,64,0.8); border:1px solid rgba(144,202,249,0.08);
+      border-radius:var(--radius-lg); padding:10px 16px;
+      backdrop-filter:blur(8px);
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .chat-input-bar:focus-within {
+      border-color:rgba(144,202,249,0.2); box-shadow:0 0 16px rgba(144,202,249,0.06);
+    }
+    .chat-input-bar input {
+      flex:1; background:none; border:none; outline:none;
+      color:var(--text); font-size:.92rem; font-family:inherit;
+    }
+    .chat-input-bar input::placeholder { color:var(--text-muted); }
+    .chat-input-bar button {
+      background:none; border:none; color:var(--text-dim); font-size:1.1rem;
+      cursor:pointer; padding:4px; border-radius:4px; transition: color var(--transition);
+    }
+    .chat-input-bar button:hover { color:var(--accent); }
+
+    /* ══════════ MEMBERS PANEL ══════════ */
+    .members-panel {
+      background: linear-gradient(180deg, var(--bg-darker) 0%, rgba(13,16,37,0.95) 100%);
+      border-left:1px solid rgba(144,202,249,0.06); overflow-y:auto; padding:12px; position:relative;
+    }
+    .members-panel::before {
+      content:''; position:absolute; width:200px; height:200px;
+      background: radial-gradient(circle, rgba(206,147,216,0.05) 0%, transparent 70%);
+      top:50%; right:-50px; border-radius:50%; pointer-events:none;
+    }
+    .role-group { margin-bottom:14px; position:relative; z-index:1; }
+    .role-group-title {
+      font-size:.68rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); padding:8px 4px 6px;
+    }
+    .member-item {
+      display:flex; align-items:center; gap:10px; padding:6px 8px;
+      border-radius:var(--radius); cursor:pointer;
+      transition: background var(--transition); position:relative; z-index:1;
+    }
+    .member-item:hover { background:rgba(144,202,249,0.06); }
+    .member-avatar {
+      width:32px; height:32px; border-radius:50%; background:var(--bg-light);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.75rem; font-weight:700; flex-shrink:0; position:relative; overflow:hidden;
+    }
+    .member-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .member-avatar .status-dot {
+      position:absolute; bottom:-1px; right:-1px; width:10px; height:10px;
+      border-radius:50%; border:2px solid var(--bg-darker); z-index:2;
+    }
+    .member-name { font-size:.86rem; font-weight:500; }
+    .member-role-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .status-online { background:var(--online); }
+    .status-idle { background:var(--idle); }
+    .status-dnd { background:var(--dnd); }
+    .status-offline { background:var(--offline); }
+    .role-admin { color:var(--role-admin); }
+    .role-mod { color:var(--role-mod); }
+    .role-member { color:var(--role-member); }
+    .message.compact { padding-top:0; }
+    .message.compact .msg-avatar { visibility:hidden; height:0; width:40px; }
+    .message.compact .msg-header { display:none; }
+    .hidden { display:none !important; }
+
+    /* ══════════ PROFILE MODAL ══════════ */
+    .modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+      z-index:100; align-items:center; justify-content:center;
+    }
+    .modal-overlay.open { display:flex; }
+    .profile-modal {
+      background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+      border:1px solid rgba(144,202,249,0.12); border-radius:16px;
+      width:360px; max-height:85vh; overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(144,202,249,0.06);
+      animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes modalIn {
+      from { opacity:0; transform:scale(0.9) translateY(20px); }
+      to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .profile-banner {
+      height:90px;
+      background: linear-gradient(135deg, rgba(144,202,249,0.2), rgba(206,147,216,0.2), rgba(128,216,255,0.15));
+      border-radius:16px 16px 0 0; position:relative;
+    }
+    .profile-avatar-wrap { position:absolute; bottom:-30px; left:20px; }
+    .profile-avatar {
+      width:72px; height:72px; border-radius:50%; background:var(--bg-medium);
+      border:4px solid var(--bg-darker);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.5rem; font-weight:700; color:var(--accent);
+      overflow:hidden; cursor:default; position:relative;
+    }
+    .profile-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .profile-avatar.editable { cursor:pointer; }
+    .profile-avatar.editable:hover::after {
+      content:'📷'; position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.55); border-radius:50%; font-size:1.2rem;
+    }
+    .profile-status-dot {
+      position:absolute; bottom:2px; right:2px; width:16px; height:16px;
+      border-radius:50%; border:3px solid var(--bg-darker); z-index:2;
+    }
+    .profile-body { padding:42px 20px 20px; }
+    .profile-name { font-size:1.2rem; font-weight:700; margin-bottom:2px; }
+    .profile-tag { font-size:.78rem; color:var(--text-muted); margin-bottom:14px; }
+    .profile-section { margin-bottom:14px; }
+    .profile-section-title {
+      font-size:.68rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); margin-bottom:6px;
+    }
+    .profile-bio {
+      font-size:.85rem; color:var(--text-dim); line-height:1.5;
+      padding:10px 12px; background:rgba(0,0,0,0.2); border-radius:var(--radius);
+    }
+    .profile-bio-edit {
+      width:100%; background:rgba(0,0,0,0.25);
+      border:1px solid rgba(144,202,249,0.15); border-radius:var(--radius);
+      color:var(--text); font-family:inherit; font-size:.85rem;
+      padding:10px 12px; resize:vertical; min-height:60px; outline:none;
+      transition: border-color var(--transition);
+    }
+    .profile-bio-edit:focus { border-color:rgba(144,202,249,0.4); }
+    .profile-roles { display:flex; flex-wrap:wrap; gap:6px; }
+    .profile-role-pill {
+      display:flex; align-items:center; gap:5px; padding:3px 10px;
+      border-radius:12px; font-size:.72rem; font-weight:600;
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+    }
+    .profile-role-dot { width:8px; height:8px; border-radius:50%; }
+    .profile-joined { font-size:.78rem; color:var(--text-muted); }
+    .profile-actions { display:flex; gap:8px; margin-top:16px; }
+    .profile-btn {
+      flex:1; padding:8px; border:1px solid rgba(144,202,249,0.15);
+      border-radius:var(--radius); background:rgba(144,202,249,0.06);
+      color:var(--accent); font-family:inherit; font-size:.82rem; font-weight:600;
+      cursor:pointer; transition: background var(--transition), border-color var(--transition);
+    }
+    .profile-btn:hover { background:rgba(144,202,249,0.14); border-color:rgba(144,202,249,0.3); }
+    .profile-btn.close-btn { color:var(--text-dim); background:rgba(255,255,255,0.03); }
+    .profile-btn.danger-btn {
+      color:var(--danger); background:rgba(255,107,107,0.06);
+      border-color:rgba(255,107,107,0.15);
+    }
+    .profile-btn.danger-btn:hover {
+      background:rgba(255,107,107,0.14); border-color:rgba(255,107,107,0.3);
+    }
+    .profile-btn.warn-btn {
+      color:var(--idle); background:rgba(250,166,26,0.06);
+      border-color:rgba(250,166,26,0.15);
+    }
+    .profile-btn.warn-btn:hover {
+      background:rgba(250,166,26,0.14); border-color:rgba(250,166,26,0.3);
+    }
+    .profile-btn.success-btn {
+      color:var(--online); background:rgba(62,221,124,0.06);
+      border-color:rgba(62,221,124,0.15);
+    }
+    .profile-btn.success-btn:hover {
+      background:rgba(62,221,124,0.14); border-color:rgba(62,221,124,0.3);
+    }
+    #pfpInput { display:none; }
+
+    /* ══════════ MODERATION ══════════ */
+    .mod-section { margin-top:12px; }
+    .mod-section-title {
+      font-size:.68rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); margin-bottom:8px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .mod-section-title::before { content:'\1F6E1'; font-size:.75rem; }
+    .mod-actions { display:flex; flex-direction:column; gap:6px; }
+    .mod-btn {
+      display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px;
+      border-radius:var(--radius); font-family:inherit; font-size:.78rem; font-weight:600;
+      cursor:pointer; transition: background var(--transition), border-color var(--transition),
+                      box-shadow var(--transition);
+    }
+    .mod-btn .mod-icon { font-size:.9rem; width:20px; text-align:center; }
+    .mod-btn-mute {
+      background:rgba(250,166,26,0.06); border:1px solid rgba(250,166,26,0.12);
+      color:var(--idle);
+    }
+    .mod-btn-mute:hover {
+      background:rgba(250,166,26,0.14); border-color:rgba(250,166,26,0.3);
+      box-shadow:0 0 12px rgba(250,166,26,0.06);
+    }
+    .mod-btn-suspend {
+      background:rgba(206,147,216,0.06); border:1px solid rgba(206,147,216,0.12);
+      color:var(--accent2);
+    }
+    .mod-btn-suspend:hover {
+      background:rgba(206,147,216,0.14); border-color:rgba(206,147,216,0.3);
+      box-shadow:0 0 12px rgba(206,147,216,0.06);
+    }
+    .mod-btn-ban {
+      background:rgba(240,71,71,0.06); border:1px solid rgba(240,71,71,0.12);
+      color:var(--dnd);
+    }
+    .mod-btn-ban:hover {
+      background:rgba(240,71,71,0.14); border-color:rgba(240,71,71,0.3);
+      box-shadow:0 0 12px rgba(240,71,71,0.06);
+    }
+    .mod-btn-unban {
+      background:rgba(62,221,124,0.06); border:1px solid rgba(62,221,124,0.12);
+      color:var(--online);
+    }
+    .mod-btn-unban:hover {
+      background:rgba(62,221,124,0.14); border-color:rgba(62,221,124,0.3);
+      box-shadow:0 0 12px rgba(62,221,124,0.06);
+    }
+    .mod-btn-delete {
+      background:rgba(255,60,60,0.08); border:1px solid rgba(255,60,60,0.18);
+      color:#ff4444; margin-top:4px;
+    }
+    .mod-btn-delete:hover {
+      background:rgba(255,60,60,0.2); border-color:rgba(255,60,60,0.4);
+      box-shadow:0 0 16px rgba(255,60,60,0.1);
+    }
+    .mod-status-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 8px; border-radius:8px; font-size:.62rem;
+      font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    }
+    .mod-badge-muted {
+      background:rgba(250,166,26,0.12); color:var(--idle);
+      border:1px solid rgba(250,166,26,0.2);
+    }
+    .mod-badge-suspended {
+      background:rgba(206,147,216,0.12); color:var(--accent2);
+      border:1px solid rgba(206,147,216,0.2);
+    }
+    .mod-badge-banned {
+      background:rgba(240,71,71,0.12); color:var(--dnd);
+      border:1px solid rgba(240,71,71,0.2);
+    }
+    .member-item .mod-status-badge { margin-left:auto; }
+
+    /* Purge button */
+    .purge-btn {
+      margin-left:auto; display:none; align-items:center; gap:6px;
+      padding:5px 12px; border-radius:var(--radius); font-family:inherit;
+      font-size:.72rem; font-weight:600; cursor:pointer; letter-spacing:.03em;
+      background:rgba(240,71,71,0.08); border:1px solid rgba(240,71,71,0.15);
+      color:var(--dnd); transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+    }
+    .purge-btn:hover {
+      background:rgba(240,71,71,0.18); border-color:rgba(240,71,71,0.35);
+      box-shadow:0 0 12px rgba(240,71,71,0.08);
+    }
+    .purge-btn.visible { display:inline-flex; }
+    .purge-dropdown {
+      position:absolute; top:100%; right:0; margin-top:4px;
+      background:var(--bg-dark); border:1px solid rgba(144,202,249,0.1);
+      border-radius:var(--radius); padding:8px; min-width:180px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.4); z-index:50; display:none;
+    }
+    .purge-dropdown.open { display:block; }
+    .purge-dropdown label { font-size:.72rem; color:var(--text-dim); font-weight:600; display:block; margin-bottom:6px; }
+    .purge-dropdown input {
+      width:100%; padding:6px 8px; border-radius:var(--radius); border:1px solid rgba(144,202,249,0.12);
+      background:var(--bg-darker); color:var(--text); font-family:inherit; font-size:.8rem; margin-bottom:8px;
+    }
+    .purge-dropdown .purge-go {
+      width:100%; padding:6px; border:none; border-radius:var(--radius);
+      background:var(--dnd); color:#fff; font-family:inherit; font-size:.75rem;
+      font-weight:600; cursor:pointer; transition: opacity var(--transition);
+    }
+    .purge-dropdown .purge-go:hover { opacity:.85; }
+
+    /* Banned / suspended overlay */
+    .banned-overlay, .suspended-overlay {
+      position:fixed; inset:0; z-index:300;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.85); backdrop-filter:blur(12px);
+    }
+    .banned-box, .suspended-box {
+      text-align:center; padding:40px; max-width:400px;
+      background:linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+      border:1px solid rgba(240,71,71,0.15); border-radius:16px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    }
+    .suspended-box { border-color:rgba(206,147,216,0.15); }
+    .banned-box h2, .suspended-box h2 { font-size:1.2rem; margin-bottom:8px; }
+    .banned-box h2 { color:var(--dnd); }
+    .suspended-box h2 { color:var(--accent2); }
+    .banned-box p, .suspended-box p {
+      font-size:.85rem; color:var(--text-dim); line-height:1.5; margin-bottom:16px;
+    }
+    .banned-box .reason, .suspended-box .reason {
+      font-size:.82rem; color:var(--text-muted); font-style:italic;
+      padding:8px 12px; background:rgba(0,0,0,0.2); border-radius:var(--radius);
+      margin-bottom:16px;
+    }
+    .muted-banner {
+      display:flex; align-items:center; gap:8px; padding:8px 16px;
+      background:rgba(250,166,26,0.08); border-top:1px solid rgba(250,166,26,0.15);
+      font-size:.78rem; color:var(--idle); flex-shrink:0; z-index:2;
+    }
+    .muted-banner .mute-icon { font-size:1rem; }
+
+    /* Mod confirm modal */
+    .mod-confirm-modal {
+      background:linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+      border:1px solid rgba(144,202,249,0.1); border-radius:16px;
+      width:380px; padding:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.5);
+      animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .mod-confirm-modal h3 {
+      font-size:1rem; font-weight:700; margin-bottom:12px;
+    }
+    .mod-confirm-modal p {
+      font-size:.85rem; color:var(--text-dim); line-height:1.5; margin-bottom:8px;
+    }
+    .mod-confirm-modal .trade-field { margin-bottom:14px; }
+    .mod-confirm-modal .trade-field label {
+      display:block; font-size:.7rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); margin-bottom:6px;
+    }
+    .mod-confirm-modal input, .mod-confirm-modal select {
+      width:100%; padding:9px 12px; background:rgba(0,0,0,0.22);
+      border:1px solid rgba(144,202,249,0.1); border-radius:var(--radius);
+      color:var(--text); font-family:inherit; font-size:.85rem; outline:none;
+      transition: border-color var(--transition);
+    }
+    .mod-confirm-modal input:focus, .mod-confirm-modal select:focus {
+      border-color:rgba(144,202,249,0.35);
+    }
+    .mod-confirm-modal select option { background:var(--bg-darker); }
+    .mod-confirm-actions { display:flex; gap:8px; margin-top:16px; }
+    .mod-confirm-actions button {
+      flex:1; padding:9px; border-radius:var(--radius); font-family:inherit;
+      font-size:.82rem; font-weight:600; cursor:pointer;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    /* ══════════ TRADING SYSTEM ══════════ */
+
+    /* --- Sidebar trading panel --- */
+    #tradingPanel {
+      display:flex; flex-direction:column; gap:8px; padding:6px 4px;
+    }
+
+    .trade-section-title {
+      font-size:.68rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.12em; color:var(--text-muted); padding:14px 6px 4px;
+      display:flex; align-items:center; gap:6px;
+    }
+    .trade-section-title::after {
+      content:''; flex:1; height:1px;
+      background:linear-gradient(90deg, rgba(144,202,249,0.12), transparent);
+    }
+
+    /* --- New trade button --- */
+    .new-trade-btn {
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      width:100%; padding:11px 14px; margin-top:2px;
+      background:linear-gradient(135deg, rgba(144,202,249,0.08), rgba(206,147,216,0.06));
+      border:1px dashed rgba(144,202,249,0.22);
+      border-radius:var(--radius-lg); color:var(--accent); font-size:.82rem;
+      font-weight:600; font-family:inherit; cursor:pointer;
+      position:relative; overflow:hidden;
+      transition: background var(--transition), border-color var(--transition),
+                  box-shadow var(--transition), transform var(--transition);
+    }
+    .new-trade-btn::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg, rgba(144,202,249,0.06), rgba(206,147,216,0.08));
+      opacity:0; transition: opacity var(--transition);
+    }
+    .new-trade-btn:hover {
+      background:linear-gradient(135deg, rgba(144,202,249,0.14), rgba(206,147,216,0.1));
+      border-color:rgba(144,202,249,0.4);
+      box-shadow:0 0 20px rgba(144,202,249,0.08), 0 0 40px rgba(206,147,216,0.04);
+      transform:translateY(-1px);
+    }
+    .new-trade-btn:hover::before { opacity:1; }
+    .new-trade-btn:active { transform:translateY(0); }
+
+    /* --- Trade cards (sidebar list) --- */
+    .trade-card {
+      background:rgba(144,202,249,0.03);
+      border:1px solid rgba(144,202,249,0.07);
+      border-radius:var(--radius-lg); padding:12px 14px;
+      cursor:pointer; position:relative; overflow:hidden;
+      transition: background var(--transition), border-color var(--transition),
+                  box-shadow var(--transition), transform var(--transition);
+      animation: tradeCardIn 0.3s ease both;
+    }
+    @keyframes tradeCardIn {
+      from { opacity:0; transform:translateY(8px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .trade-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      background:linear-gradient(90deg, transparent, rgba(144,202,249,0.15), rgba(206,147,216,0.1), transparent);
+      opacity:0; transition: opacity var(--transition);
+    }
+    .trade-card:hover {
+      background:rgba(144,202,249,0.07);
+      border-color:rgba(144,202,249,0.18);
+      box-shadow:0 4px 20px rgba(0,0,0,0.2), 0 0 16px rgba(144,202,249,0.05);
+      transform:translateY(-1px);
+    }
+    .trade-card:hover::before { opacity:1; }
+    .trade-card + .trade-card { margin-top:6px; }
+
+    .trade-card-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:8px;
+    }
+    .trade-card-user {
+      display:flex; align-items:center; gap:8px;
+    }
+    .trade-card-avatar {
+      width:30px; height:30px; border-radius:50%;
+      background:linear-gradient(135deg, var(--bg-light), var(--bg-medium));
+      display:flex; align-items:center; justify-content:center;
+      font-size:.72rem; font-weight:700; color:var(--accent);
+      overflow:hidden; flex-shrink:0;
+      border:1.5px solid rgba(144,202,249,0.1);
+      transition: border-color var(--transition);
+    }
+    .trade-card:hover .trade-card-avatar { border-color:rgba(144,202,249,0.25); }
+    .trade-card-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+    .trade-card-name {
+      font-size:.82rem; font-weight:600; color:var(--text);
+    }
+
+    /* Status badges */
+    .trade-status {
+      font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+      padding:3px 9px; border-radius:10px;
+      backdrop-filter:blur(4px);
+    }
+    .trade-status.open {
+      background:rgba(62,221,124,0.12); color:var(--online);
+      border:1px solid rgba(62,221,124,0.2);
+      box-shadow:0 0 8px rgba(62,221,124,0.08);
+    }
+    .trade-status.pending {
+      background:rgba(250,166,26,0.12); color:var(--idle);
+      border:1px solid rgba(250,166,26,0.2);
+      box-shadow:0 0 8px rgba(250,166,26,0.06);
+      animation: pendingPulse 2s ease-in-out infinite;
+    }
+    @keyframes pendingPulse {
+      0%, 100% { box-shadow:0 0 8px rgba(250,166,26,0.06); }
+      50%      { box-shadow:0 0 14px rgba(250,166,26,0.14); }
+    }
+    .trade-status.completed {
+      background:rgba(144,202,249,0.12); color:var(--accent);
+      border:1px solid rgba(144,202,249,0.2);
+    }
+    .trade-status.accepted {
+      background:rgba(62,221,124,0.12); color:var(--online);
+      border:1px solid rgba(62,221,124,0.2);
+    }
+    .trade-status.declined {
+      background:rgba(240,71,71,0.12); color:var(--dnd);
+      border:1px solid rgba(240,71,71,0.15);
+    }
+
+    /* Item pills in cards */
+    .trade-card-items {
+      display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;
+      align-items:center;
+    }
+    .trade-item-pill {
+      font-size:.7rem; font-weight:500; padding:3px 10px; border-radius:10px;
+      background:linear-gradient(135deg, rgba(206,147,216,0.1), rgba(144,202,249,0.06));
+      border:1px solid rgba(206,147,216,0.15);
+      color:var(--accent2);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .trade-card:hover .trade-item-pill {
+      background:linear-gradient(135deg, rgba(206,147,216,0.15), rgba(144,202,249,0.1));
+      border-color:rgba(206,147,216,0.25);
+    }
+    .trade-arrow {
+      font-size:.85rem; color:var(--text-muted); align-self:center;
+      padding:0 2px; opacity:.5;
+    }
+    .trade-card-note {
+      font-size:.7rem; color:var(--text-muted); margin-top:6px;
+      font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .trade-card-time {
+      font-size:.62rem; color:var(--text-muted); margin-top:8px;
+      opacity:.7;
+    }
+
+    /* Empty-state inside trade lists */
+    .trade-empty {
+      padding:10px 8px; font-size:.78rem; color:var(--text-muted);
+      text-align:center; font-style:italic;
+    }
+
+    /* --- Trade modal overlay inherits .modal-overlay --- */
+
+    /* Trade modal */
+    .trade-modal {
+      background: linear-gradient(145deg, var(--bg-darker), var(--bg-dark));
+      border:1px solid rgba(144,202,249,0.1); border-radius:16px;
+      width:440px; max-width:95vw; max-height:85vh; overflow-y:auto;
+      box-shadow:0 24px 80px rgba(0,0,0,0.55),
+                 0 0 60px rgba(144,202,249,0.05),
+                 inset 0 1px 0 rgba(144,202,249,0.06);
+      animation: tradeModalIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      padding:28px;
+      position:relative;
+    }
+    @keyframes tradeModalIn {
+      from { opacity:0; transform:scale(0.92) translateY(24px); }
+      to   { opacity:1; transform:scale(1) translateY(0); }
+    }
+    .trade-modal::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, var(--accent), var(--accent2), #80d8ff);
+      border-radius:16px 16px 0 0; opacity:.6;
+    }
+    .trade-modal::after {
+      content:''; position:absolute; width:180px; height:180px;
+      background:radial-gradient(circle, rgba(206,147,216,0.06) 0%, transparent 70%);
+      bottom:-40px; right:-40px; border-radius:50%; pointer-events:none;
+    }
+    .trade-modal h3 {
+      font-size:1.05rem; font-weight:700; margin-bottom:20px;
+      background:linear-gradient(135deg, var(--accent), var(--accent2), #80d8ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      letter-spacing:.02em;
+    }
+
+    /* Trade modal fields */
+    .trade-field { margin-bottom:16px; position:relative; }
+    .trade-field label {
+      display:block; font-size:.7rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.1em; color:var(--text-muted); margin-bottom:7px;
+    }
+    .trade-field select,
+    .trade-field > input {
+      width:100%; padding:10px 14px; background:rgba(0,0,0,0.22);
+      border:1px solid rgba(144,202,249,0.1); border-radius:var(--radius);
+      color:var(--text); font-family:inherit; font-size:.85rem; outline:none;
+      transition: border-color var(--transition), box-shadow var(--transition),
+                  background var(--transition);
+    }
+    .trade-field select:focus,
+    .trade-field > input:focus {
+      border-color:rgba(144,202,249,0.35);
+      box-shadow:0 0 12px rgba(144,202,249,0.06);
+      background:rgba(0,0,0,0.28);
+    }
+    .trade-field > input::placeholder { color:var(--text-muted); }
+    .trade-field select { cursor:pointer; -webkit-appearance:none; appearance:none; }
+    .trade-field select option { background:var(--bg-darker); color:var(--text); }
+
+    /* Item tag input wrapper */
+    .trade-items-input {
+      display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+      min-height:42px; padding:7px 12px; background:rgba(0,0,0,0.22);
+      border:1px solid rgba(144,202,249,0.1); border-radius:var(--radius);
+      cursor:text;
+      transition: border-color var(--transition), box-shadow var(--transition),
+                  background var(--transition);
+    }
+    .trade-items-input:focus-within {
+      border-color:rgba(144,202,249,0.35);
+      box-shadow:0 0 12px rgba(144,202,249,0.06);
+      background:rgba(0,0,0,0.28);
+    }
+    .trade-items-input input {
+      flex:1; min-width:80px; background:none; border:none;
+      padding:3px 0; font-size:.82rem; color:var(--text); outline:none;
+    }
+    .trade-items-input input::placeholder { color:var(--text-muted); }
+
+    /* Tags inside input */
+    .trade-item-tag {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 9px; border-radius:8px;
+      background:linear-gradient(135deg, rgba(206,147,216,0.14), rgba(144,202,249,0.08));
+      border:1px solid rgba(206,147,216,0.22);
+      color:var(--accent2); font-size:.72rem; font-weight:600;
+      animation: tagPopIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    @keyframes tagPopIn {
+      from { opacity:0; transform:scale(0.8); }
+      to   { opacity:1; transform:scale(1); }
+    }
+    .trade-item-tag:hover {
+      background:linear-gradient(135deg, rgba(206,147,216,0.22), rgba(144,202,249,0.14));
+      border-color:rgba(206,147,216,0.35);
+    }
+    .trade-item-tag button {
+      background:none; border:none; color:var(--accent2); font-size:.82rem;
+      cursor:pointer; padding:0 2px; opacity:.5; line-height:1;
+      transition: opacity var(--transition), color var(--transition);
+    }
+    .trade-item-tag button:hover { opacity:1; color:var(--danger); }
+
+    /* Divider between offering & wanting */
+    .trade-divider {
+      display:flex; align-items:center; gap:10px; margin:4px 0;
+      font-size:.7rem; color:var(--text-muted);
+    }
+    .trade-divider::before, .trade-divider::after {
+      content:''; flex:1; height:1px;
+      background:linear-gradient(90deg, transparent, rgba(144,202,249,0.1), transparent);
+    }
+
+    /* Modal action buttons */
+    .trade-actions { display:flex; gap:10px; margin-top:22px; }
+    .trade-actions button {
+      flex:1; padding:10px 16px; border-radius:var(--radius); font-family:inherit;
+      font-size:.82rem; font-weight:600; cursor:pointer;
+      transition: background var(--transition), border-color var(--transition),
+                  box-shadow var(--transition), transform var(--transition);
+    }
+    .trade-submit-btn {
+      background:linear-gradient(135deg, rgba(144,202,249,0.14), rgba(206,147,216,0.08));
+      border:1px solid rgba(144,202,249,0.25);
+      color:var(--accent);
+      position:relative; overflow:hidden;
+    }
+    .trade-submit-btn::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg, rgba(144,202,249,0.08), rgba(206,147,216,0.12));
+      opacity:0; transition: opacity var(--transition);
+    }
+    .trade-submit-btn:hover {
+      background:linear-gradient(135deg, rgba(144,202,249,0.22), rgba(206,147,216,0.14));
+      border-color:rgba(144,202,249,0.45);
+      box-shadow:0 4px 20px rgba(144,202,249,0.1);
+      transform:translateY(-1px);
+    }
+    .trade-submit-btn:hover::before { opacity:1; }
+    .trade-submit-btn:active { transform:translateY(0); }
+
+    .trade-cancel-btn {
+      background:rgba(255,255,255,0.02);
+      border:1px solid rgba(144,202,249,0.08);
+      color:var(--text-dim);
+    }
+    .trade-cancel-btn:hover {
+      background:rgba(255,255,255,0.05);
+      border-color:rgba(144,202,249,0.15);
+    }
+
+    /* --- Chat area welcome for trading tab --- */
+    .trade-hub-welcome {
+      display:flex; flex-direction:column; align-items:center; gap:16px;
+      padding:60px 20px; text-align:center;
+    }
+    .trade-hub-icon {
+      font-size:2.8rem; opacity:.7;
+      animation: floatIcon 3s ease-in-out infinite;
+    }
+    @keyframes floatIcon {
+      0%, 100% { transform:translateY(0); }
+      50%      { transform:translateY(-8px); }
+    }
+    .trade-hub-welcome h3 {
+      font-size:1.15rem; font-weight:600;
+      background:linear-gradient(135deg, var(--accent), var(--accent2), #80d8ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .trade-hub-welcome p {
+      font-size:.85rem; color:var(--text-muted); max-width:320px; line-height:1.5;
+    }
+
+    /* Trade card action buttons */
+    .trade-card-actions {
+      display:flex; gap:6px; margin-top:10px;
+    }
+    .trade-accept-btn, .trade-decline-btn, .trade-cancel-trade-btn {
+      flex:1; padding:6px 10px; border-radius:var(--radius); font-family:inherit;
+      font-size:.72rem; font-weight:600; cursor:pointer; text-align:center;
+      transition: background var(--transition), border-color var(--transition),
+                  box-shadow var(--transition), transform var(--transition);
+    }
+    .trade-accept-btn {
+      background:rgba(62,221,124,0.1); border:1px solid rgba(62,221,124,0.2);
+      color:var(--online);
+    }
+    .trade-accept-btn:hover {
+      background:rgba(62,221,124,0.2); border-color:rgba(62,221,124,0.4);
+      box-shadow:0 0 12px rgba(62,221,124,0.1); transform:translateY(-1px);
+    }
+    .trade-decline-btn {
+      background:rgba(240,71,71,0.08); border:1px solid rgba(240,71,71,0.15);
+      color:var(--dnd);
+    }
+    .trade-decline-btn:hover {
+      background:rgba(240,71,71,0.16); border-color:rgba(240,71,71,0.3);
+      box-shadow:0 0 12px rgba(240,71,71,0.08); transform:translateY(-1px);
+    }
+    .trade-cancel-trade-btn {
+      background:rgba(255,255,255,0.03); border:1px solid rgba(144,202,249,0.1);
+      color:var(--text-dim);
+    }
+    .trade-cancel-trade-btn:hover {
+      background:rgba(255,255,255,0.06); border-color:rgba(144,202,249,0.2);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+    <div class="sidebar-header"><span>REIGN</span></div>
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="channels">Channels</div>
+      <div class="sidebar-tab" data-tab="dms">Messages</div>
+      <div class="sidebar-tab" data-tab="trading">Trading</div>
+    </div>
+    <div class="sidebar-content" id="sidebarContent">
+      <div id="channelsPanel">
+        <div class="channel-group-title">Text Channels</div>
+        <div class="channel-item active" data-channel="general"><span class="hash">#</span> general</div>
+        <div class="channel-item" data-channel="announcements"><span class="hash">#</span> announcements</div>
+        <div class="channel-item" data-channel="memes"><span class="hash">#</span> memes</div>
+        <div class="channel-item" data-channel="dev-talk"><span class="hash">#</span> dev-talk</div>
+      </div>
+      <div id="dmsPanel" class="hidden">
+        <div id="dmsList"></div>
+        <p id="dmsEmpty" style="padding:16px 8px;font-size:.82rem;color:var(--text-muted);">dm someone if there is more than 1 here :/</p>
+      </div>
+
+      <div id="tradingPanel" class="hidden">
+        <button class="new-trade-btn" id="newTradeBtn">&#43; New Trade Offer</button>
+        <div class="trade-section-title">Your Active Trades</div>
+        <div id="myTradesList"></div>
+        <div class="trade-section-title">Open Offers</div>
+        <div id="openTradesList"></div>
+      </div>
+
+    </div>
+    <div class="user-panel">
+      <div class="dm-avatar" style="color:var(--accent);" id="userAvatar" title="Edit profile">?<div class="status-dot status-online"></div></div>
+      <div>
+        <div class="user-name" id="userName">Loading...</div>
+        <div class="user-tag" id="userTag"></div>
+      </div>
+      <div class="user-panel-icons">
+        <button title="Settings" id="settingsBtn">&#9881;</button>
+        <button title="Logout" id="logoutBtn">&#9211;</button>
+        <div class="settings-dropdown" id="settingsDropdown">
+          <button class="settings-item" id="pfpBtn"><span class="settings-icon">&#128247;</span> Change Avatar</button>
+          <button class="settings-item" id="awayBtn"><span class="settings-icon">&#127769;</span> Set Away</button>
+          <div class="settings-divider"></div>
+          <button class="settings-item notif-on" id="notifBtn"><span class="settings-icon">&#128276;</span> Notifications: On</button>
+          <button class="settings-item" id="deafenBtn"><span class="settings-icon">&#127911;</span> Deafen</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ CHAT ═══ -->
+  <main class="chat-area">
+    <div class="chat-header">
+      <span class="hash">#</span>
+      <span class="channel-name" id="chatTitle">general</span>
+      <span class="channel-topic">Talk about anything and everything</span>
+      <div style="margin-left:auto;position:relative;">
+        <button class="purge-btn" id="purgeBtn" title="Purge messages">&#128465; Purge</button>
+        <div class="purge-dropdown" id="purgeDropdown">
+          <label>Delete last N messages</label>
+          <input type="number" id="purgeCount" min="1" max="100" value="10" placeholder="10" />
+          <button class="purge-go" id="purgeGo">Delete Messages</button>
+        </div>
+      </div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div id="replyBanner" style="display:none"></div>
+    <div class="chat-input-wrapper">
+      <div class="chat-input-bar">
+        <button title="Attach file">&#128206;</button>
+        <input type="text" id="msgInput" placeholder="Message #general" autocomplete="off" />
+        <button title="Emoji" id="globalEmojiBtn">&#128512;</button>
+        <button title="Send" id="sendBtn">&#10148;</button>
+      </div>
+      <div class="global-emoji-picker" id="globalEmojiPicker"></div>
+      <div class="mention-autocomplete" id="mentionAutocomplete"></div>
+    </div>
+  </main>
+
+  <!-- ═══ MEMBERS (dynamic) ═══ -->
+  <aside class="members-panel" id="membersPanel"></aside>
+
+</div>
+
+<!-- ═══ PROFILE MODAL ═══ -->
+<div class="modal-overlay" id="profileModal">
+  <div class="profile-modal">
+    <div class="profile-banner"></div>
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar" id="profileAvatar">?<div class="profile-status-dot status-online" id="profileStatus"></div></div>
+    </div>
+    <div class="profile-body">
+      <div class="profile-name" id="profileName">Username</div>
+      <div class="profile-tag" id="profileTag">@username</div>
+      <div class="profile-section">
+        <div class="profile-section-title">About Me</div>
+        <div class="profile-bio" id="profileBio">No bio set yet.</div>
+      </div>
+      <div class="profile-section">
+        <div class="profile-section-title">Roles</div>
+        <div class="profile-roles" id="profileRoles"></div>
+      </div>
+      <div class="profile-section">
+        <div class="profile-section-title">Member Since</div>
+        <div class="profile-joined" id="profileJoined">—</div>
+      </div>
+      <div class="profile-actions" id="profileActions"></div>
+    </div>
+  </div>
+</div>
+<input type="file" id="pfpInput" accept="image/*" />
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══ MODERATION CONFIRM MODAL ═══ -->
+<div class="modal-overlay" id="modModal">
+  <div class="mod-confirm-modal">
+    <h3 id="modModalTitle">Confirm Action</h3>
+    <p id="modModalDesc"></p>
+    <div class="trade-field">
+      <label>Reason</label>
+      <input type="text" id="modReasonInput" placeholder="Reason for this action..." maxlength="200" />
+    </div>
+    <div class="trade-field" id="modDurationField" style="display:none">
+      <label>Duration</label>
+      <select id="modDurationSelect">
+        <option value="5">5 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="360">6 hours</option>
+        <option value="1440">24 hours</option>
+        <option value="10080">7 days</option>
+        <option value="0">Permanent</option>
+      </select>
+    </div>
+    <div class="mod-confirm-actions">
+      <button class="trade-submit-btn" id="modConfirmBtn">Confirm</button>
+      <button class="trade-cancel-btn" id="modCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BANNED / SUSPENDED OVERLAY ═══ -->
+<div id="bannedOverlay" class="banned-overlay" style="display:none">
+  <div class="banned-box">
+    <h2>&#128683; You Have Been Banned</h2>
+    <p>You can no longer access this server.</p>
+    <div class="reason" id="bannedReason"></div>
+    <button class="profile-btn" onclick="firebase.auth().signOut().then(function(){window.location.href='index.html';})">Log Out</button>
+  </div>
+</div>
+<div id="suspendedOverlay" class="suspended-overlay" style="display:none">
+  <div class="suspended-box">
+    <h2>&#9200; Account Suspended</h2>
+    <p>Your account has been temporarily suspended.</p>
+    <div class="reason" id="suspendedReason"></div>
+    <p id="suspendedUntil" style="font-size:.78rem;color:var(--text-muted);"></p>
+    <button class="profile-btn" onclick="firebase.auth().signOut().then(function(){window.location.href='index.html';})">Log Out</button>
+  </div>
+</div>
+
+<!-- ═══ TRADE MODAL ═══ -->
+<div class="modal-overlay" id="tradeModal">
+  <div class="trade-modal">
+    <h3>&#128260; Create Trade Offer</h3>
+    <div class="trade-field">
+      <label>Trade With</label>
+      <select id="tradePartnerSelect"><option value="">Select a user...</option></select>
+    </div>
+    <div class="trade-field">
+      <label>You're Offering</label>
+      <div class="trade-items-input" id="offeringItemsWrap">
+        <input type="text" id="offeringInput" placeholder="Type item &amp; press Enter" />
+      </div>
+    </div>
+    <div class="trade-divider">&#8644;</div>
+    <div class="trade-field">
+      <label>You Want</label>
+      <div class="trade-items-input" id="wantingItemsWrap">
+        <input type="text" id="wantingInput" placeholder="Type item &amp; press Enter" />
+      </div>
+    </div>
+    <div class="trade-field">
+      <label>Note (optional)</label>
+      <input type="text" id="tradeNote" placeholder="Any extra details..." maxlength="120" />
+    </div>
+    <div class="trade-actions">
+      <button class="trade-submit-btn" id="tradeSubmitBtn">Send Offer</button>
+      <button class="trade-cancel-btn" id="tradeCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- FIREBASE + APP -->
+<script>
+  function openCloaked(path) {
+  const w = window.open('', '_blank');
+  if (!w) return window.open(path, '_blank');
+
+  fetch(path)
+    .then(r => r.text())
+    .then(html => {
+      const baseTag = `<base href="${new URL(path, location.href).href}">`;
+      html = html.replace(/<head[^>]*>/i, match => match + baseTag);
+
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+    })
+    .catch(() => {
+      w.location.href = path;
+    });
+}
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  /* Firebase */
+  firebase.initializeApp({
+    apiKey: "AIzaSyAc20a6CkTHFHAGZsbjdP8XZYBflxPe7wo",
+    authDomain: "reign-ca200.firebaseapp.com",
+    projectId: "reign-ca200",
+    storageBucket: "reign-ca200.firebasestorage.app",
+    messagingSenderId: "349163251303",
+    appId: "1:349163251303:web:3f970dc8b9bd439a3f56c2"
+  });
+  const auth = firebase.auth();
+  const db   = firebase.firestore(); 
+  const FV   = firebase.firestore.FieldValue;
+
+  const EMOJIS = ['\ud83d\udc4d','\u2764\ufe0f','\ud83d\ude02','\ud83d\udd25','\ud83d\ude2e','\ud83c\udf89','\ud83d\udcaf','\ud83d\ude22','\ud83d\udc40','\ud83d\ude80'];
+  const channelTopics = {
+    general:'talk about anything and life',
+    announcements:'announcements r tuff',
+    memes:'mm yes MEEEMEES',
+    'dev-talk':'talk about coding n stuf',
+  };
+  const PRESENCE_TTL = 2 * 60 * 1000;
+
+  let myUid = null, myName = 'You', myPfp = null, myBio = '', myStatus = 'online';
+  let myRole = 'member'; // 'admin', 'mod', or 'member'
+  let notificationsOn = true, initialLoad = true;
+  let currentView = 'channels', currentChannel = 'general', currentDm = null;
+  let localMessages = [], presenceMembers = [];
+  let unsubMessages = null, unsubPresence = null, unsubAllUsers = null, unsubDmList = null;
+  let unsubModeration = null;
+  let replyingTo = null;
+  let allKnownUsers = {};
+  let moderationData = {}; // { uid: { type, reason, until, by } }
+  let memberTabView = 'online';
+  let isMuted = false;
+  let dmConversations = []; // [{partnerId, partnerName, lastMsg, lastTime, unread}]
+  let mentionIdx = -1;
+
+  const sel  = s => document.querySelector(s);
+  const selA = s => document.querySelectorAll(s);
+  const messagesEl   = sel('#messages');
+  const chatTitle    = sel('#chatTitle');
+  const msgInput     = sel('#msgInput');
+  const sendBtn      = sel('#sendBtn');
+  const membersPanel = sel('#membersPanel');
+
+  /* Profile (localStorage) */
+  function loadProfile() {
+    try { const p = JSON.parse(localStorage.getItem('reign_profile')); if (p) { myPfp = p.pfp || null; myBio = p.bio || ''; } } catch(e){}
+  }
+  function saveProfile() { localStorage.setItem('reign_profile', JSON.stringify({ pfp: myPfp, bio: myBio })); }
+  loadProfile();
+
+  function refreshMyAvatars() {
+    const i = myName[0] ? myName[0].toUpperCase() : '?';
+    const ua = sel('#userAvatar');
+    var statusClass = myStatus === 'away' ? 'status-idle' : 'status-online';
+    ua.innerHTML = myPfp
+      ? '<img src="'+myPfp+'" alt="pfp"><div class="status-dot '+statusClass+'"></div>'
+      : i+'<div class="status-dot '+statusClass+'"></div>';
+    sel('#userName').textContent = myName;
+    sel('#userTag').textContent = myStatus === 'away' ? 'Away' : '@'+myName;
+    var awayBtn = sel('#awayBtn');
+    if (awayBtn) {
+      awayBtn.classList.toggle('away-active', myStatus === 'away');
+      awayBtn.innerHTML = '<span class="settings-icon">&#127769;</span> ' + (myStatus === 'away' ? 'Set Online' : 'Set Away');
+    }
+  }
+
+  function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function formatTime(ts) {
+    if (!ts) return 'Just now';
+    var d = ts.toDate ? ts.toDate() : new Date(ts);
+    var now = new Date();
+    var hh = String(d.getHours()).padStart(2,'0');
+    var mm = String(d.getMinutes()).padStart(2,'0');
+    return d.toDateString() === now.toDateString()
+      ? 'Today at '+hh+':'+mm
+      : d.toLocaleDateString()+' '+hh+':'+mm;
+  }
+
+  /* ---- NOTIFICATIONS ---- */
+  function showToast(author, text, channel, pfp) {
+    var container = sel('#toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    var avatarHtml = pfp
+      ? '<div class="toast-avatar"><img src="'+pfp+'" alt="pfp"></div>'
+      : '<div class="toast-avatar">'+(author?author[0].toUpperCase():'?')+'</div>';
+    toast.innerHTML = avatarHtml +
+      '<div class="toast-body"><div><span class="toast-author">'+escapeHtml(author)+'</span><span class="toast-channel">#'+escapeHtml(channel)+'</span></div><div class="toast-text">'+escapeHtml(text.substring(0,100))+'</div></div>'+
+      '<button class="toast-close">&times;</button>';
+    container.appendChild(toast);
+    toast.querySelector('.toast-close').addEventListener('click', function(){ toast.remove(); });
+    setTimeout(function(){ if(toast.parentNode) toast.remove(); }, 4000);
+  }
+
+  function sendBrowserNotif(author, text, channel) {
+    if (Notification.permission !== 'granted') return;
+    var n = new Notification('Reign — #'+channel, {
+      body: author+': '+text.substring(0,120),
+      icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👑</text></svg>',
+      tag: 'reign-'+channel
+    });
+    n.onclick = function(){ window.focus(); n.close(); };
+    setTimeout(function(){ n.close(); }, 5000);
+  }
+
+  function notifyNewMessage(msg) {
+    if (msg.authorUid === myUid) return;
+    var isPinged = msg.mentions && msg.mentions.indexOf(myUid) !== -1;
+    // Always notify on ping, otherwise respect setting
+    if (!notificationsOn && !isPinged) return;
+    var pm = presenceMembers.find(function(p){ return p.uid === msg.authorUid; });
+    var pfp = pm ? pm.pfp : null;
+    var label = currentView === 'dms' ? 'DM' : currentChannel;
+    var prefix = isPinged ? '📣 Pinged by ' : '';
+    showToast(prefix + (msg.author || '?'), msg.text || '', label, pfp);
+    if (document.hidden || isPinged) sendBrowserNotif(msg.author || '?', msg.text || '', label);
+  }
+
+  /* ---- MENTION HELPERS ---- */
+  function parseMentions(text) {
+    // returns { html, mentionedUids[] }
+    var uids = [];
+    var html = escapeHtml(text).replace(/@(\w+)/g, function(match, name) {
+      var uid = null;
+      Object.keys(allKnownUsers).forEach(function(id) {
+        if (allKnownUsers[id].name.toLowerCase() === name.toLowerCase()) uid = id;
+      });
+      if (uid) {
+        uids.push(uid);
+        var cls = uid === myUid ? 'mention mention-me' : 'mention';
+        return '<span class="'+cls+'" data-uid="'+uid+'">@'+escapeHtml(allKnownUsers[uid].name)+'</span>';
+      }
+      return match;
+    });
+    return { html: html, uids: uids };
+  }
+
+  function extractMentionUids(text) {
+    var uids = [];
+    var regex = /@(\w+)/g;
+    var m;
+    while ((m = regex.exec(text)) !== null) {
+      Object.keys(allKnownUsers).forEach(function(id) {
+        if (allKnownUsers[id].name.toLowerCase() === m[1].toLowerCase()) uids.push(id);
+      });
+    }
+    return uids;
+  }
+
+  /* ---- FIRESTORE: MESSAGES ---- */
+  function listenMessages(channel) {
+    if (unsubMessages) unsubMessages();
+    localMessages = [];
+    initialLoad = true;
+    unsubMessages = db.collection('channels').doc(channel).collection('messages')
+      .orderBy('timestamp')
+      .onSnapshot(function(snap) {
+        if (!initialLoad) {
+          snap.docChanges().forEach(function(change) {
+            if (change.type === 'added') {
+              var d = change.doc.data();
+              d.id = change.doc.id;
+              notifyNewMessage(d);
+            }
+          });
+        }
+        initialLoad = false;
+        localMessages = [];
+        snap.forEach(function(doc) { localMessages.push({ id: doc.id, ...doc.data() }); });
+        renderMessages();
+      }, function(err) { console.error('Messages error:', err); });
+  }
+
+  function sendMessage() {
+    var text = msgInput.value.trim();
+    if (!text || !myUid) return;
+    if (isMuted) {
+      msgInput.value = '';
+      return;
+    }
+    msgInput.value = '';
+    closeMentionAC();
+    var mentions = extractMentionUids(text);
+    if (currentView === 'dms' && currentDm) {
+      // DM message
+      var dmId = getDmId(myUid, currentDm.uid);
+      db.collection('dms').doc(dmId).collection('messages').add({
+        author: myName,
+        authorUid: myUid,
+        text: text,
+        mentions: mentions,
+        timestamp: FV.serverTimestamp()
+      });
+      // Update DM metadata for both users
+      db.collection('dms').doc(dmId).set({
+        participants: [myUid, currentDm.uid],
+        lastMsg: text.substring(0,80),
+        lastTime: FV.serverTimestamp()
+      }, { merge: true });
+      return;
+    }
+    var msgData = {
+      author: myName,
+      authorUid: myUid,
+      role: 'member',
+      text: text,
+      mentions: mentions,
+      timestamp: FV.serverTimestamp(),
+      reactions: {}
+    };
+    if (replyingTo) {
+      msgData.replyTo = { msgId: replyingTo.msgId, author: replyingTo.author, text: replyingTo.text.substring(0,80) };
+      cancelReply();
+    }
+    db.collection('channels').doc(currentChannel).collection('messages').add(msgData);
+  }
+
+  function setReply(msgId, author, text) {
+    replyingTo = { msgId: msgId, author: author, text: text };
+    var banner = sel('#replyBanner');
+    banner.style.display = 'flex';
+    banner.className = 'reply-banner';
+    banner.innerHTML = '<span>Replying to </span><span class="reply-author">@'+escapeHtml(author)+'</span><span class="reply-text">'+escapeHtml(text.substring(0,80))+'</span><button class="reply-close" id="cancelReplyBtn">&times;</button>';
+    sel('#cancelReplyBtn').addEventListener('click', cancelReply);
+    msgInput.focus();
+  }
+
+  function cancelReply() {
+    replyingTo = null;
+    var banner = sel('#replyBanner');
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+  }
+
+  function toggleReaction(msgId, emoji) {
+    if (!myUid) return;
+    var ref = db.collection('channels').doc(currentChannel).collection('messages').doc(msgId);
+    var msg = localMessages.find(function(m){ return m.id === msgId; });
+    var reacted = msg && msg.reactions && msg.reactions[emoji] && msg.reactions[emoji].indexOf(myUid) !== -1;
+    var path = 'reactions.' + emoji;
+    var upd = {};
+    upd[path] = reacted ? FV.arrayRemove(myUid) : FV.arrayUnion(myUid);
+    ref.update(upd).catch(function(e){ console.error('Reaction error:', e); });
+  }
+
+  /* ---- FIRESTORE: REGISTER USER (persistent) ---- */
+  function registerUser() {
+    if (!myUid) return;
+    var pfpVal = (myPfp && myPfp.length < 100000) ? myPfp : '';
+    db.collection('users').doc(myUid).set({
+      name: myName,
+      pfp: pfpVal,
+      joinedAt: FV.serverTimestamp()
+    }, { merge: true }).catch(function(e){ console.error('Register user error:', e); });
+  }
+
+  /* Listen to all registered users — gives the full member list */
+  function listenAllUsers() {
+    if (unsubAllUsers) unsubAllUsers();
+    unsubAllUsers = db.collection('users').onSnapshot(function(snap) {
+      allKnownUsers = {};
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        allKnownUsers[doc.id] = { uid: doc.id, name: d.name || '?', pfp: d.pfp || null, role: d.role || 'member' };
+      });
+      // update own role
+      if (allKnownUsers[myUid]) myRole = allKnownUsers[myUid].role || 'member';
+      renderMembers();
+    }, function(err) { console.error('All-users error:', err); });
+  }
+
+  /* ---- MODERATION SYSTEM ---- */
+  function isAdmin() { return myRole === 'admin'; }
+  function isMod()   { return myRole === 'mod' || myRole === 'admin'; }
+
+  function listenModeration() {
+    if (unsubModeration) unsubModeration();
+    unsubModeration = db.collection('moderation').onSnapshot(function(snap) {
+      moderationData = {};
+      var now = Date.now();
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        // Auto-expire timed actions
+        if (d.until && d.until.toDate && d.until.toDate().getTime() < now) {
+          doc.ref.delete(); return;
+        }
+        moderationData[doc.id] = d;
+      });
+      checkMyModStatus();
+      renderMembers();
+    }, function(err) { console.error('Moderation listener error:', err); });
+  }
+
+  function checkMyModStatus() {
+    var myMod = moderationData[myUid];
+    if (!myMod) {
+      isMuted = false;
+      sel('#bannedOverlay').style.display = 'none';
+      sel('#suspendedOverlay').style.display = 'none';
+      removeMutedBanner();
+      return;
+    }
+    if (myMod.type === 'ban') {
+      sel('#bannedReason').textContent = myMod.reason || 'No reason provided.';
+      sel('#bannedOverlay').style.display = 'flex';
+      return;
+    }
+    if (myMod.type === 'suspend') {
+      sel('#suspendedReason').textContent = myMod.reason || 'No reason provided.';
+      var untilStr = myMod.until && myMod.until.toDate
+        ? 'Suspended until: ' + myMod.until.toDate().toLocaleString()
+        : 'Suspended permanently.';
+      sel('#suspendedUntil').textContent = untilStr;
+      sel('#suspendedOverlay').style.display = 'flex';
+      return;
+    }
+    if (myMod.type === 'mute') {
+      isMuted = true;
+      showMutedBanner(myMod);
+      return;
+    }
+  }
+
+  function showMutedBanner(modInfo) {
+    removeMutedBanner();
+    var banner = document.createElement('div');
+    banner.className = 'muted-banner';
+    banner.id = 'mutedBanner';
+    var untilStr = modInfo.until && modInfo.until.toDate
+      ? ' until ' + modInfo.until.toDate().toLocaleString()
+      : '';
+    banner.innerHTML = '<span class="mute-icon">&#128263;</span> You are muted' + untilStr +
+      (modInfo.reason ? ' — ' + escapeHtml(modInfo.reason) : '');
+    var wrapper = sel('.chat-input-wrapper');
+    wrapper.parentNode.insertBefore(banner, wrapper);
+  }
+
+  function removeMutedBanner() {
+    var b = sel('#mutedBanner');
+    if (b) b.remove();
+  }
+
+  function getUserModStatus(uid) {
+    return moderationData[uid] || null;
+  }
+
+  /* Mod action executor */
+  var pendingModAction = null;
+  var modModal = sel('#modModal');
+
+  function openModModal(action, targetUid, targetName) {
+    pendingModAction = { action: action, uid: targetUid, name: targetName };
+    sel('#modReasonInput').value = '';
+    var title = sel('#modModalTitle');
+    var desc = sel('#modModalDesc');
+    var durField = sel('#modDurationField');
+
+    if (action === 'delete') {
+      title.textContent = '\uD83D\uDDD1 Delete Account: ' + targetName;
+      title.style.color = '#ff4444';
+      desc.textContent = 'This will permanently delete the user\'s account data, presence, and moderation records. This action cannot be undone.';
+      durField.style.display = 'none';
+    } else if (action === 'ban') {
+      title.textContent = '\uD83D\uDEAB Ban ' + targetName;
+      title.style.color = 'var(--dnd)';
+      desc.textContent = 'This will permanently ban the user from the server. They will be unable to access any channels.';
+      durField.style.display = 'none';
+    } else if (action === 'mute') {
+      title.textContent = '\uD83D\uDD07 Mute ' + targetName;
+      title.style.color = 'var(--idle)';
+      desc.textContent = 'The user will be unable to send messages for the specified duration.';
+      durField.style.display = '';
+    } else if (action === 'suspend') {
+      title.textContent = '\u23F0 Suspend ' + targetName;
+      title.style.color = 'var(--accent2)';
+      desc.textContent = 'The user will be locked out of the app for the specified duration.';
+      durField.style.display = '';
+    }
+    modModal.classList.add('open');
+  }
+
+  sel('#modCancelBtn').addEventListener('click', function() {
+    modModal.classList.remove('open');
+    pendingModAction = null;
+  });
+  modModal.addEventListener('click', function(e) {
+    if (e.target === modModal) { modModal.classList.remove('open'); pendingModAction = null; }
+  });
+
+  sel('#modConfirmBtn').addEventListener('click', function() {
+    if (!pendingModAction || !isMod()) return;
+    var a = pendingModAction;
+    var reason = sel('#modReasonInput').value.trim().substring(0, 200);
+    if (a.action === 'delete') {
+      var batch = db.batch();
+      batch.delete(db.collection('users').doc(a.uid));
+      batch.delete(db.collection('presence').doc(a.uid));
+      batch.delete(db.collection('moderation').doc(a.uid));
+      batch.commit()
+        .then(function() {
+          showToast('\uD83D\uDDD1 Account deleted', a.name, 'Moderation', null);
+          modModal.classList.remove('open');
+          pendingModAction = null;
+          closeProfile();
+        })
+        .catch(function(err) { console.error('Delete account error:', err); });
+      return;
+    }
+    var modDoc = {
+      type: a.action,
+      reason: reason,
+      targetName: a.name,
+      by: myName,
+      byUid: myUid,
+      createdAt: FV.serverTimestamp()
+    };
+    if (a.action === 'mute' || a.action === 'suspend') {
+      var mins = parseInt(sel('#modDurationSelect').value);
+      if (mins > 0) {
+        modDoc.until = new Date(Date.now() + mins * 60000);
+      }
+    }
+    db.collection('moderation').doc(a.uid).set(modDoc)
+      .then(function() {
+        showToast('\uD83D\uDEE1 ' + a.action.charAt(0).toUpperCase() + a.action.slice(1) + 'd', a.name, 'Moderation', null);
+        modModal.classList.remove('open');
+        pendingModAction = null;
+        closeProfile();
+      })
+      .catch(function(err) { console.error('Moderation error:', err); });
+  });
+
+  /* ---- PURGE ---- */
+  (function() {
+    var purgeBtn = sel('#purgeBtn');
+    var purgeDrop = sel('#purgeDropdown');
+    var purgeGo = sel('#purgeGo');
+    var purgeCount = sel('#purgeCount');
+
+    function updatePurgeVisibility() {
+      if (isMod() && currentView !== 'trading') {
+        purgeBtn.classList.add('visible');
+      } else {
+        purgeBtn.classList.remove('visible');
+        purgeDrop.classList.remove('open');
+      }
+    }
+    // Re-check when view changes — hook into renderMessages
+    var origRender = renderMessages;
+    renderMessages = function() { origRender(); updatePurgeVisibility(); };
+
+    purgeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      purgeDrop.classList.toggle('open');
+    });
+    document.addEventListener('click', function(e) {
+      if (!purgeDrop.contains(e.target) && e.target !== purgeBtn) purgeDrop.classList.remove('open');
+    });
+
+    purgeGo.addEventListener('click', function() {
+      if (!isMod()) return;
+      var count = parseInt(purgeCount.value) || 10;
+      if (count < 1) count = 1;
+      if (count > 100) count = 100;
+      if (!confirm('Delete the last ' + count + ' messages in this channel?')) return;
+
+      var colRef;
+      if (currentView === 'dms' && currentDm) {
+        var dmId = getDmId(myUid, currentDm.uid);
+        colRef = db.collection('dms').doc(dmId).collection('messages');
+      } else {
+        colRef = db.collection('channels').doc(currentChannel).collection('messages');
+      }
+
+      colRef.orderBy('timestamp', 'desc').limit(count).get().then(function(snap) {
+        var batch = db.batch();
+        snap.forEach(function(doc) { batch.delete(doc.ref); });
+        return batch.commit();
+      }).then(function() {
+        showToast('\uD83D\uDDD1 Purged ' + count + ' messages', currentView === 'dms' ? 'DM' : '#' + currentChannel, 'Moderation', null);
+        purgeDrop.classList.remove('open');
+      }).catch(function(err) { console.error('Purge error:', err); });
+    });
+  })();
+
+  function removeModerationAction(uid) {
+    db.collection('moderation').doc(uid).delete()
+      .then(function() {
+        showToast('\u2705 Action removed', allKnownUsers[uid] ? allKnownUsers[uid].name : uid, 'Moderation', null);
+        closeProfile();
+      })
+      .catch(function(err) { console.error('Remove moderation error:', err); });
+  }
+
+  /* ---- FIRESTORE: PRESENCE ---- */
+  function setPresence() {
+    if (!myUid) return;
+    var pfpVal = (myPfp && myPfp.length < 100000) ? myPfp : '';
+    db.collection('presence').doc(myUid).set({
+      name: myName,
+      pfp: pfpVal,
+      status: myStatus,
+      lastSeen: FV.serverTimestamp()
+    }, { merge: true }).catch(function(){});
+  }
+
+  function removePresence() {
+    if (!myUid) return;
+    db.collection('presence').doc(myUid).delete().catch(function(){});
+  }
+
+  function listenPresence() {
+    if (unsubPresence) unsubPresence();
+    unsubPresence = db.collection('presence').onSnapshot(function(snap) {
+      presenceMembers = [];
+      var now = Date.now();
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (d.lastSeen && d.lastSeen.toDate) {
+          var age = now - d.lastSeen.toDate().getTime();
+          if (age > PRESENCE_TTL && doc.id !== myUid) { doc.ref.delete(); return; }
+        }
+        presenceMembers.push({ uid: doc.id, name: d.name, pfp: d.pfp, status: d.status || 'online', lastSeen: d.lastSeen });
+      });
+      renderMembers();
+    }, function(err) { console.error('Presence error:', err); });
+  }
+
+  /* ---- RENDER MESSAGES ---- */
+  function renderMessages() {
+    messagesEl.innerHTML = '';
+    if (localMessages.length === 0) {
+      var w = document.createElement('div'); w.className = 'welcome-msg';
+      w.innerHTML = '<h3>Welcome to #'+escapeHtml(currentChannel)+'</h3><p>This is the start of the channel. Say something!</p>';
+      messagesEl.appendChild(w); return;
+    }
+    localMessages.forEach(function(m, i) {
+      var prev = localMessages[i-1];
+      var compact = prev && prev.authorUid === m.authorUid;
+      var roleClass = m.role==='admin'?'role-admin':m.role==='mod'?'role-mod':'role-member';
+      var roleBg = m.role==='admin'?'var(--role-admin)':m.role==='mod'?'var(--role-mod)':'var(--role-member)';
+      var roleLabel = m.role==='admin'?'ADMIN':m.role==='mod'?'MOD':'';
+      var initial = m.author ? m.author[0].toUpperCase() : '?';
+      var time = formatTime(m.timestamp);
+      var isMe = m.authorUid === myUid;
+      var avatarHtml;
+      if (isMe && myPfp) {
+        avatarHtml = '<div class="msg-avatar"><img src="'+myPfp+'" alt="pfp"></div>';
+      } else {
+        var pm = presenceMembers.find(function(p){ return p.uid === m.authorUid; });
+        if (pm && pm.pfp) {
+          avatarHtml = '<div class="msg-avatar"><img src="'+pm.pfp+'" alt="pfp"></div>';
+        } else {
+          avatarHtml = '<div class="msg-avatar" style="color:'+roleBg+';">'+initial+'</div>';
+        }
+      }
+      var reactionsHtml = '';
+      if (m.reactions) {
+        Object.keys(m.reactions).forEach(function(emoji) {
+          var users = m.reactions[emoji];
+          if (!Array.isArray(users) || users.length === 0) return;
+          var reacted = users.indexOf(myUid) !== -1;
+          reactionsHtml += '<div class="reaction'+(reacted?' reacted':'')+'" data-msgid="'+m.id+'" data-emoji="'+emoji+'"><span>'+emoji+'</span><span class="count">'+users.length+'</span></div>';
+        });
+      }
+      var el = document.createElement('div');
+      var isPinged = m.mentions && m.mentions.indexOf(myUid) !== -1;
+      el.className = 'message'+(compact?' compact':'')+(isPinged?' pinged':'');
+      el.dataset.msgid = m.id;
+      el.innerHTML = avatarHtml +
+        '<div class="msg-body">'+
+          '<div class="msg-header">'+
+            '<span class="msg-author '+roleClass+'">'+escapeHtml(m.author||'?')+'</span>'+
+            (roleLabel?'<span class="msg-role-badge" style="background:'+roleBg+'22;color:'+roleBg+';">'+roleLabel+'</span>':'')+
+            '<span class="msg-time">'+time+'</span>'+
+          '</div>'+
+          (m.replyTo ? '<div class="msg-reply-ref" data-scroll="'+escapeHtml(m.replyTo.msgId||'')+'"><span class="reply-ref-author">@'+escapeHtml(m.replyTo.author||'?')+'</span> <span>'+escapeHtml((m.replyTo.text||'').substring(0,60))+'</span></div>' : '')+
+          '<div class="msg-text">'+(parseMentions(m.text||'').html)+'</div>'+
+          '<div class="msg-reactions">'+reactionsHtml+'</div>'+
+        '</div>'+
+        '<div class="msg-actions">'+
+          '<button class="msg-action-btn react-btn" title="Add Reaction">&#128512;</button>'+
+          '<button class="msg-action-btn reply-btn" title="Reply" data-msgid="'+m.id+'" data-author="'+escapeHtml(m.author||'?')+'" data-text="'+escapeHtml((m.text||'').substring(0,80))+'">&#8617;</button>'+
+          (isMe ? '<button class="msg-action-btn delete-btn" title="Delete" data-msgid="'+m.id+'">&#128465;</button>' : '')+
+          '<div class="emoji-picker" data-msgid="'+m.id+'">'+
+            EMOJIS.map(function(e){ return '<button class="emoji-pick" data-emoji="'+e+'">'+e+'</button>'; }).join('')+
+          '</div>'+
+        '</div>';
+      messagesEl.appendChild(el);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    attachMsgListeners();
+  }
+
+  function attachMsgListeners() {
+    selA('.reaction').forEach(function(r) {
+      r.addEventListener('click', function() { toggleReaction(r.dataset.msgid, r.dataset.emoji); });
+    });
+    selA('.react-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var picker = btn.closest('.msg-actions').querySelector('.emoji-picker');
+        selA('.emoji-picker').forEach(function(p) { if(p!==picker) p.classList.remove('open'); });
+        picker.classList.toggle('open');
+      });
+    });
+    selA('.emoji-pick').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var picker = btn.closest('.emoji-picker');
+        toggleReaction(picker.dataset.msgid, btn.dataset.emoji);
+        picker.classList.remove('open');
+      });
+    });
+    selA('.reply-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        setReply(btn.dataset.msgid, btn.dataset.author, btn.dataset.text);
+      });
+    });
+    selA('.msg-reply-ref').forEach(function(ref) {
+      ref.addEventListener('click', function() {
+        var targetId = ref.dataset.scroll;
+        var el = messagesEl.querySelector('.message[data-msgid="'+targetId+'"]');
+        if (el) { el.scrollIntoView({ behavior:'smooth', block:'center' }); el.style.background='rgba(144,202,249,0.12)'; setTimeout(function(){ el.style.background=''; },1500); }
+      });
+    });
+    selA('.delete-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!confirm('Delete this message?')) return;
+        var msgId = btn.dataset.msgid;
+        db.collection('channels').doc(currentChannel).collection('messages').doc(msgId).delete().catch(function(err){ console.error('Delete error:', err); });
+      });
+    });
+  }
+  document.addEventListener('click', function() {
+    selA('.emoji-picker').forEach(function(p) { p.classList.remove('open'); });
+    var gp = sel('#globalEmojiPicker'); if (gp) gp.classList.remove('open');
+  });
+
+  /* ---- GLOBAL EMOJI PICKER (input bar) ---- */
+  (function() {
+    var FULL_EMOJIS = ['😀','😂','😍','🥰','😎','🤩','😏','🤔','😢','😭','😤','🤯','🥳','😴','🤗','😈',
+      '👍','👎','👏','🙌','💪','🤝','✌️','🤞','👀','💀','❤️','🔥','⭐','💎','🚀','🎉',
+      '💯','🎮','🎵','🌟','⚡','🪐','👾','🌙','🍕','☕','🎯','🏆','💬','✅','❌','⏰','🍆'];
+    var picker = sel('#globalEmojiPicker');
+    picker.innerHTML = FULL_EMOJIS.map(function(e){ return '<button data-emoji="'+e+'">'+e+'</button>'; }).join('');
+    sel('#globalEmojiBtn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      picker.classList.toggle('open');
+    });
+    picker.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var btn = e.target.closest('button[data-emoji]');
+      if (!btn) return;
+      var emoji = btn.dataset.emoji;
+      var input = sel('#msgInput');
+      var start = input.selectionStart, end = input.selectionEnd;
+      input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+      input.selectionStart = input.selectionEnd = start + emoji.length;
+      input.focus();
+    });
+  })();
+
+  /* ---- RENDER MEMBERS ---- */
+  function getMemberRoleInfo(uid) {
+    var u = allKnownUsers[uid];
+    var role = u ? (u.role || 'member') : 'member';
+    var color = role==='admin'?'var(--role-admin)':role==='mod'?'var(--role-mod)':'var(--role-member)';
+    var cls = role==='admin'?'role-admin':role==='mod'?'role-mod':'role-member';
+    return { role:role, color:color, cls:cls };
+  }
+
+  function getModBadgeHtml(uid) {
+    var mod = moderationData[uid];
+    if (!mod) return '';
+    if (mod.type==='ban')     return '<span class="mod-status-badge mod-badge-banned">Banned</span>';
+    if (mod.type==='mute')    return '<span class="mod-status-badge mod-badge-muted">Muted</span>';
+    if (mod.type==='suspend') return '<span class="mod-status-badge mod-badge-suspended">Suspended</span>';
+    return '';
+  }
+
+  function renderMembers() {
+    var onlineUids = {};
+    presenceMembers.forEach(function(m){ onlineUids[m.uid] = true; });
+    var offlineUsers = [];
+    Object.keys(allKnownUsers).forEach(function(uid) {
+      if (!onlineUids[uid]) {
+        var u = allKnownUsers[uid];
+        offlineUsers.push(u);
+      }
+    });
+
+    var html = '<div class="members-tabs">';
+    html += '<div class="members-tab'+(memberTabView==='online'?' active':'')+'" data-mtab="online">Online — '+presenceMembers.length+'</div>';
+    html += '<div class="members-tab'+(memberTabView==='offline'?' active':'')+'" data-mtab="offline">Offline — '+offlineUsers.length+'</div>';
+    html += '</div>';
+
+    if (memberTabView === 'online') {
+      if (presenceMembers.length === 0) {
+        html += '<p style="padding:12px 8px;font-size:.78rem;color:var(--text-muted);text-align:center;">No one online</p>';
+      }
+      presenceMembers.forEach(function(m) {
+        var isMe = m.uid === myUid;
+        var initial = m.name ? m.name[0].toUpperCase() : '?';
+        var pfp = isMe ? myPfp : (m.pfp || null);
+        var mStatus = isMe ? myStatus : (m.status || 'online');
+        var statusCls = mStatus === 'away' ? 'status-idle' : 'status-online';
+        var ri = getMemberRoleInfo(m.uid);
+        var avatar = pfp
+          ? '<img src="'+pfp+'" alt="pfp"><div class="status-dot '+statusCls+'"></div>'
+          : initial+'<div class="status-dot '+statusCls+'"></div>';
+        var nameExtra = mStatus === 'away' ? ' <span style="font-size:.68rem;color:var(--idle);font-weight:400;">(Away)</span>' : '';
+        var modBadge = getModBadgeHtml(m.uid);
+        html += '<div class="member-item" data-uid="'+m.uid+'" data-member="'+escapeHtml(m.name||'?')+'">'+
+          '<div class="member-avatar" style="color:'+ri.color+';">'+avatar+'</div>'+
+          '<div class="member-role-dot" style="background:'+ri.color+';"></div>'+
+          '<span class="member-name '+ri.cls+'">'+escapeHtml(m.name||'?')+nameExtra+'</span>'+modBadge+'</div>';
+      });
+    } else {
+      if (offlineUsers.length === 0) {
+        html += '<p style="padding:12px 8px;font-size:.78rem;color:var(--text-muted);text-align:center;">No offline members tracked yet</p>';
+      }
+      offlineUsers.forEach(function(m) {
+        var initial = m.name ? m.name[0].toUpperCase() : '?';
+        var pfp = m.pfp || null;
+        var ri = getMemberRoleInfo(m.uid);
+        var avatar = pfp
+          ? '<img src="'+pfp+'" alt="pfp"><div class="status-dot" style="background:#747f8d;"></div>'
+          : initial+'<div class="status-dot" style="background:#747f8d;"></div>';
+        var modBadge = getModBadgeHtml(m.uid);
+        html += '<div class="member-item offline-member" data-uid="'+m.uid+'" data-member="'+escapeHtml(m.name||'?')+'">'+
+          '<div class="member-avatar" style="color:'+ri.color+';">'+avatar+'</div>'+
+          '<div class="member-role-dot" style="background:#747f8d;"></div>'+
+          '<span class="member-name">'+escapeHtml(m.name||'?')+'</span>'+modBadge+'</div>';
+      });
+    }
+
+    membersPanel.innerHTML = html;
+
+    selA('.members-tab').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        memberTabView = tab.dataset.mtab;
+        renderMembers();
+      });
+    });
+    selA('.member-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        openProfile(item.dataset.uid === myUid ? 'you' : item.dataset.member);
+      });
+    });
+  }
+
+  /* ---- MENTION AUTOCOMPLETE ---- */
+  var mentionAC = sel('#mentionAutocomplete');
+  function closeMentionAC() { mentionAC.classList.remove('open'); mentionAC.innerHTML = ''; mentionIdx = -1; }
+
+  function getMentionQuery() {
+    var val = msgInput.value, pos = msgInput.selectionStart;
+    var before = val.substring(0, pos);
+    var match = before.match(/@(\w*)$/);
+    return match ? match[1] : null;
+  }
+
+  function showMentionAC(query) {
+    var q = query.toLowerCase();
+    var users = Object.values(allKnownUsers).filter(function(u) {
+      return u.name.toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 8);
+    if (users.length === 0) { closeMentionAC(); return; }
+    mentionIdx = 0;
+    mentionAC.innerHTML = users.map(function(u, i) {
+      var av = u.pfp ? '<img src="'+u.pfp+'" alt="">' : (u.name[0]||'?').toUpperCase();
+      return '<div class="mention-option'+(i===0?' selected':'')+'" data-name="'+escapeHtml(u.name)+'" data-idx="'+i+'"><div class="mention-option-avatar">'+av+'</div><span>'+escapeHtml(u.name)+'</span></div>';
+    }).join('');
+    mentionAC.classList.add('open');
+    selA('.mention-option').forEach(function(opt) {
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        completeMention(opt.dataset.name);
+      });
+    });
+  }
+
+  function completeMention(name) {
+    var val = msgInput.value, pos = msgInput.selectionStart;
+    var before = val.substring(0, pos);
+    var after = val.substring(pos);
+    var newBefore = before.replace(/@\w*$/, '@'+name+' ');
+    msgInput.value = newBefore + after;
+    msgInput.selectionStart = msgInput.selectionEnd = newBefore.length;
+    msgInput.focus();
+    closeMentionAC();
+  }
+
+  msgInput.addEventListener('input', function() {
+    var q = getMentionQuery();
+    if (q !== null) showMentionAC(q); else closeMentionAC();
+  });
+
+  /* ---- SEND & INPUT ---- */
+  sendBtn.addEventListener('click', sendMessage);
+  msgInput.addEventListener('keydown', function(e) {
+    if (mentionAC.classList.contains('open')) {
+      var opts = mentionAC.querySelectorAll('.mention-option');
+      if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx = Math.min(mentionIdx+1, opts.length-1); opts.forEach(function(o,i){ o.classList.toggle('selected',i===mentionIdx); }); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx = Math.max(mentionIdx-1, 0); opts.forEach(function(o,i){ o.classList.toggle('selected',i===mentionIdx); }); return; }
+      if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); if(opts[mentionIdx]) completeMention(opts[mentionIdx].dataset.name); return; }
+      if (e.key === 'Escape') { closeMentionAC(); return; }
+    }
+    if(e.key==='Enter') sendMessage();
+  });
+
+  /* ---- SIDEBAR TABS ---- */
+  selA('.sidebar-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      selA('.sidebar-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      currentView = tab.dataset.tab;
+      sel('#channelsPanel').classList.add('hidden');
+      sel('#dmsPanel').classList.add('hidden');
+      sel('#tradingPanel').classList.add('hidden');
+      if (currentView==='channels') {
+        sel('#channelsPanel').classList.remove('hidden');
+        membersPanel.style.display = '';
+        currentDm = null;
+        updateChatHeader();
+        listenMessages(currentChannel);
+      } else if (currentView==='trading') {
+        sel('#tradingPanel').classList.remove('hidden');
+        membersPanel.style.display = 'none';
+        chatTitle.textContent = 'Trading';
+        sel('.chat-header .hash').textContent = '⚖';
+        sel('.chat-header .channel-topic').textContent = 'Trade items with other users';
+        sel('.chat-header .channel-topic').style.display = '';
+        msgInput.placeholder = 'Search trades...';
+        if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+        localMessages = [];
+        messagesEl.innerHTML = '<div class="trade-hub-welcome"><div class="trade-hub-icon">⚖️</div><h3>Trading Hub</h3><p>Create trade offers or browse what others are looking for. Use the sidebar to manage your trades.</p></div>';
+      } else {
+        sel('#dmsPanel').classList.remove('hidden');
+        membersPanel.style.display = 'none';
+        updateChatHeader();
+        if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+        localMessages = [];
+        if (!currentDm) {
+          messagesEl.innerHTML = '<div class="welcome-msg"><h3>Direct Messages</h3><p>Select a conversation or click a member to start one.</p></div>';
+        }
+      }
+    });
+  });
+
+  /* ---- CHANNEL CLICK ---- */
+  selA('.channel-item[data-channel]').forEach(function(ch) {
+    ch.addEventListener('click', function() {
+      selA('.channel-item').forEach(function(c) { c.classList.remove('active'); });
+      ch.classList.add('active');
+      currentChannel = ch.dataset.channel;
+      updateChatHeader();
+      listenMessages(currentChannel);
+    });
+  });
+
+  function updateChatHeader() {
+    if (currentView==='channels') {
+      chatTitle.textContent = currentChannel;
+      sel('.chat-header .hash').textContent = '#';
+      var t = sel('.chat-header .channel-topic');
+      t.textContent = channelTopics[currentChannel]||'';
+      t.style.display = '';
+      msgInput.placeholder = 'Message #'+currentChannel;
+    } else if (currentDm) {
+      chatTitle.textContent = currentDm.name;
+      sel('.chat-header .hash').textContent = '@';
+      sel('.chat-header .channel-topic').style.display = 'none';
+      msgInput.placeholder = 'Message @'+currentDm.name;
+    } else {
+      chatTitle.textContent = 'Messages';
+      sel('.chat-header .hash').textContent = '@';
+      sel('.chat-header .channel-topic').style.display = 'none';
+      msgInput.placeholder = 'Select a conversation';
+    }
+  }
+
+  /* ---- DIRECT MESSAGING ---- */
+  function getDmId(uid1, uid2) {
+    return uid1 < uid2 ? uid1+'_'+uid2 : uid2+'_'+uid1;
+  }
+
+  function openDm(partnerUid, partnerName) {
+    currentDm = { uid: partnerUid, name: partnerName };
+    currentView = 'dms';
+    selA('.sidebar-tab').forEach(function(t){ t.classList.remove('active'); });
+    selA('.sidebar-tab').forEach(function(t){ if(t.dataset.tab==='dms') t.classList.add('active'); });
+    sel('#channelsPanel').classList.add('hidden');
+    sel('#dmsPanel').classList.remove('hidden');
+    membersPanel.style.display = 'none';
+    updateChatHeader();
+    listenDmMessages(partnerUid);
+    // highlight in DM list
+    selA('.dm-item').forEach(function(d){ d.classList.toggle('active', d.dataset.uid === partnerUid); });
+  }
+
+  function listenDmMessages(partnerUid) {
+    if (unsubMessages) unsubMessages();
+    localMessages = [];
+    initialLoad = true;
+    var dmId = getDmId(myUid, partnerUid);
+    unsubMessages = db.collection('dms').doc(dmId).collection('messages')
+      .orderBy('timestamp')
+      .onSnapshot(function(snap) {
+        if (!initialLoad) {
+          snap.docChanges().forEach(function(change) {
+            if (change.type === 'added') {
+              var d = change.doc.data();
+              d.id = change.doc.id;
+              notifyNewMessage(d);
+            }
+          });
+        }
+        initialLoad = false;
+        localMessages = [];
+        snap.forEach(function(doc) { localMessages.push({ id: doc.id, ...doc.data() }); });
+        renderDmMessages();
+      });
+  }
+
+  function renderDmMessages() {
+    messagesEl.innerHTML = '';
+    if (localMessages.length === 0) {
+      var w = document.createElement('div'); w.className = 'welcome-msg';
+      w.innerHTML = '<h3>DM with '+escapeHtml(currentDm.name)+'</h3><p>This is the beginning of your conversation.</p>';
+      messagesEl.appendChild(w); return;
+    }
+    localMessages.forEach(function(m, i) {
+      var prev = localMessages[i-1];
+      var compact = prev && prev.authorUid === m.authorUid;
+      var initial = m.author ? m.author[0].toUpperCase() : '?';
+      var time = formatTime(m.timestamp);
+      var isMe = m.authorUid === myUid;
+      var avatarHtml;
+      if (isMe && myPfp) {
+        avatarHtml = '<div class="msg-avatar"><img src="'+myPfp+'" alt="pfp"></div>';
+      } else {
+        var u = allKnownUsers[m.authorUid];
+        var pfp = u && u.pfp;
+        avatarHtml = pfp
+          ? '<div class="msg-avatar"><img src="'+pfp+'" alt="pfp"></div>'
+          : '<div class="msg-avatar" style="color:var(--role-member);">'+initial+'</div>';
+      }
+      var el = document.createElement('div');
+      el.className = 'message'+(compact?' compact':'');
+      el.dataset.msgid = m.id;
+      el.innerHTML = avatarHtml +
+        '<div class="msg-body">'+
+          '<div class="msg-header">'+
+            '<span class="msg-author role-member">'+escapeHtml(m.author||'?')+'</span>'+
+            '<span class="msg-time">'+time+'</span>'+
+          '</div>'+
+          '<div class="msg-text">'+(parseMentions(m.text||'').html)+'</div>'+
+        '</div>'+
+        (isMe ? '<div class="msg-actions"><button class="msg-action-btn delete-btn" title="Delete" data-msgid="'+m.id+'">&#128465;</button></div>' : '');
+      messagesEl.appendChild(el);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    // attach delete for DMs
+    selA('.delete-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!confirm('Delete this message?')) return;
+        var dmId = getDmId(myUid, currentDm.uid);
+        db.collection('dms').doc(dmId).collection('messages').doc(btn.dataset.msgid).delete();
+      });
+    });
+  }
+
+  function listenDmList() {
+    if (unsubDmList) unsubDmList();
+    unsubDmList = db.collection('dms')
+      .where('participants', 'array-contains', myUid)
+      .onSnapshot(function(snap) {
+        dmConversations = [];
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          var partnerId = d.participants.find(function(p){ return p !== myUid; });
+          var partner = allKnownUsers[partnerId] || { name: partnerId, pfp: null };
+          dmConversations.push({
+            id: doc.id,
+            partnerId: partnerId,
+            partnerName: partner.name,
+            partnerPfp: partner.pfp,
+            lastMsg: d.lastMsg || '',
+            lastTime: d.lastTime ? d.lastTime.toMillis() : 0
+          });
+        });
+        // Sort newest first (client-side to avoid composite index)
+        dmConversations.sort(function(a, b) { return b.lastTime - a.lastTime; });
+        renderDmList();
+      }, function(err) {
+        console.error('DM list listener error:', err);
+      });
+  }
+
+  function renderDmList() {
+    var list = sel('#dmsList');
+    var empty = sel('#dmsEmpty');
+    if (dmConversations.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    list.innerHTML = dmConversations.map(function(c) {
+      var initial = c.partnerName ? c.partnerName[0].toUpperCase() : '?';
+      var av = c.partnerPfp
+        ? '<img src="'+c.partnerPfp+'" alt="pfp">'
+        : initial;
+      var pm = presenceMembers.find(function(p){ return p.uid === c.partnerId; });
+      var statusCls = pm ? (pm.status === 'away' ? 'status-idle' : 'status-online') : 'status-offline';
+      var active = currentDm && currentDm.uid === c.partnerId ? ' active' : '';
+      return '<div class="dm-item'+active+'" data-uid="'+c.partnerId+'" data-name="'+escapeHtml(c.partnerName)+'">'+
+        '<div class="dm-avatar">'+av+'<div class="status-dot '+statusCls+'"></div></div>'+
+        '<div style="flex:1;min-width:0;"><div style="font-size:.84rem;font-weight:500;">'+escapeHtml(c.partnerName)+'</div>'+
+        '<div style="font-size:.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(c.lastMsg)+'</div></div></div>';
+    }).join('');
+    selA('.dm-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        openDm(item.dataset.uid, item.dataset.name);
+      });
+    });
+  }
+
+  /* ---- PROFILE MODAL ---- */
+  var profileModal = sel('#profileModal');
+  var pfpInput = sel('#pfpInput');
+
+  function openProfile(key) {
+    var isMe = key==='you';
+    var av = sel('#profileAvatar'), nm = sel('#profileName'), tg = sel('#profileTag');
+    var bio = sel('#profileBio'), roles = sel('#profileRoles'), joined = sel('#profileJoined'), acts = sel('#profileActions');
+    if (isMe) {
+      nm.textContent = myName; tg.textContent = '@'+myName;
+      var myStatusCls = myStatus === 'away' ? 'status-idle' : 'status-online';
+      av.innerHTML = (myPfp?'<img src="'+myPfp+'" alt="pfp">':myName[0].toUpperCase())+'<div class="profile-status-dot '+myStatusCls+'"></div>';
+      av.className = 'profile-avatar editable'; av.onclick = function(){ pfpInput.click(); };
+      bio.outerHTML = '<textarea class="profile-bio-edit" id="profileBio" maxlength="200" placeholder="Tell people about yourself...">'+escapeHtml(myBio)+'</textarea>';
+      var myRoleColor = myRole==='admin'?'var(--role-admin)':myRole==='mod'?'var(--role-mod)':'var(--role-member)';
+      var myRoleLabel = myRole.charAt(0).toUpperCase()+myRole.slice(1);
+      roles.innerHTML = '<div class="profile-role-pill"><div class="profile-role-dot" style="background:'+myRoleColor+';"></div> '+myRoleLabel+'</div>';
+      joined.textContent = 'Today';
+      acts.innerHTML = '<button class="profile-btn" id="saveBioBtn">Save Bio</button><button class="profile-btn close-btn" id="closeProfileBtn">Close</button>';
+      setTimeout(function(){
+        var s=sel('#saveBioBtn'); if(s) s.onclick=function(){myBio=sel('#profileBio').value.trim();saveProfile();closeProfile();};
+        var c=sel('#closeProfileBtn'); if(c) c.onclick=closeProfile;
+      },10);
+    } else {
+      var pm = presenceMembers.find(function(m){ return m.name === key; });
+      var userEntry = null;
+      Object.keys(allKnownUsers).forEach(function(uid){ if(allKnownUsers[uid].name===key) userEntry=allKnownUsers[uid]; });
+      av.className = 'profile-avatar'; av.onclick = null;
+      var pfp = (pm && pm.pfp) || (userEntry && userEntry.pfp);
+      var theirStatus = pm ? (pm.status || 'online') : 'offline';
+      var theirStatusCls = theirStatus === 'away' ? 'status-idle' : (pm ? 'status-online' : 'status-offline');
+      av.innerHTML = (pfp?'<img src="'+pfp+'" alt="pfp">':key[0].toUpperCase())+'<div class="profile-status-dot '+theirStatusCls+'"></div>';
+      nm.textContent = key; tg.textContent = '@'+key;
+      var cur = sel('#profileBio');
+      if(cur.tagName==='TEXTAREA') cur.outerHTML='<div class="profile-bio" id="profileBio">No bio set.</div>';
+      else cur.textContent = 'No bio set.';
+      var theirRole = userEntry ? (userEntry.role || 'member') : 'member';
+      var roleColor = theirRole==='admin'?'var(--role-admin)':theirRole==='mod'?'var(--role-mod)':'var(--role-member)';
+      var roleLabel = theirRole.charAt(0).toUpperCase()+theirRole.slice(1);
+      roles.innerHTML = '<div class="profile-role-pill"><div class="profile-role-dot" style="background:'+roleColor+';"></div> '+roleLabel+'</div>';
+      joined.textContent = '\u2014';
+      var partnerUid = userEntry ? userEntry.uid : (pm ? pm.uid : null);
+
+      // Build actions
+      var actsHtml = '';
+      if (partnerUid) actsHtml += '<button class="profile-btn" id="dmFromProfile">Message</button>';
+
+      // Mod status badge
+      var theirMod = partnerUid ? getUserModStatus(partnerUid) : null;
+      if (theirMod) {
+        var badgeCls = theirMod.type==='ban'?'mod-badge-banned':theirMod.type==='mute'?'mod-badge-muted':'mod-badge-suspended';
+        var badgeLabel = theirMod.type==='ban'?'Banned':theirMod.type==='mute'?'Muted':'Suspended';
+        roles.innerHTML += ' <span class="mod-status-badge '+badgeCls+'">'+badgeLabel+'</span>';
+      }
+
+      // Moderation section (only for mods/admins viewing non-self)
+      if (isMod() && partnerUid && partnerUid !== myUid) {
+        var canModTarget = true;
+        // Mods can't moderate admins; admins can moderate anyone
+        if (theirRole === 'admin' && myRole !== 'admin') canModTarget = false;
+        if (theirRole === 'mod' && myRole === 'mod') canModTarget = false;
+
+        if (canModTarget) {
+          actsHtml += '<div class="mod-section" style="flex-basis:100%;"><div class="mod-section-title">Moderation</div><div class="mod-actions">';
+          if (theirMod) {
+            actsHtml += '<button class="mod-btn mod-btn-unban" id="modRemoveAction" data-uid="'+partnerUid+'"><span class="mod-icon">&#10003;</span> Remove '+badgeLabel+'</button>';
+          } else {
+            actsHtml += '<button class="mod-btn mod-btn-mute" id="modMuteBtn" data-uid="'+partnerUid+'" data-name="'+escapeHtml(key)+'"><span class="mod-icon">&#128263;</span> Mute</button>';
+            actsHtml += '<button class="mod-btn mod-btn-suspend" id="modSuspendBtn" data-uid="'+partnerUid+'" data-name="'+escapeHtml(key)+'"><span class="mod-icon">&#9200;</span> Suspend</button>';
+            if (isAdmin()) {
+              actsHtml += '<button class="mod-btn mod-btn-ban" id="modBanBtn" data-uid="'+partnerUid+'" data-name="'+escapeHtml(key)+'"><span class="mod-icon">&#128683;</span> Ban</button>';
+            }
+          }
+          if (isAdmin()) {
+            actsHtml += '<button class="mod-btn mod-btn-delete" id="modDeleteBtn" data-uid="'+partnerUid+'" data-name="'+escapeHtml(key)+'"><span class="mod-icon">&#128465;</span> Delete Account</button>';
+          }
+          actsHtml += '</div></div>';
+        }
+      }
+
+      actsHtml += '<button class="profile-btn close-btn" id="closeProfileBtn">Close</button>';
+      acts.innerHTML = actsHtml;
+      acts.style.flexWrap = 'wrap';
+
+      setTimeout(function(){
+        var c=sel('#closeProfileBtn');if(c) c.onclick=closeProfile;
+        var d=sel('#dmFromProfile');if(d) d.onclick=function(){ closeProfile(); openDm(partnerUid, key); };
+        var mb=sel('#modMuteBtn');if(mb) mb.onclick=function(){ openModModal('mute',mb.dataset.uid,mb.dataset.name); };
+        var sb=sel('#modSuspendBtn');if(sb) sb.onclick=function(){ openModModal('suspend',sb.dataset.uid,sb.dataset.name); };
+        var bb=sel('#modBanBtn');if(bb) bb.onclick=function(){ openModModal('ban',bb.dataset.uid,bb.dataset.name); };
+        var ra=sel('#modRemoveAction');if(ra) ra.onclick=function(){ removeModerationAction(ra.dataset.uid); };
+        var dl=sel('#modDeleteBtn');if(dl) dl.onclick=function(){ openModModal('delete',dl.dataset.uid,dl.dataset.name); };
+      },10);
+    }
+    profileModal.classList.add('open');
+  }
+
+  function closeProfile() {
+    profileModal.classList.remove('open');
+    var b=sel('#profileBio'); if(b&&b.tagName==='TEXTAREA') b.outerHTML='<div class="profile-bio" id="profileBio">No bio set yet.</div>';
+  }
+  profileModal.addEventListener('click', function(e){if(e.target===profileModal) closeProfile();});
+
+  pfpInput.addEventListener('change', function(e) {
+    var file = e.target.files[0]; if(!file) return;
+    if(file.size>2*1024*1024){alert('Image must be under 2MB');return;}
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      myPfp = ev.target.result; saveProfile(); refreshMyAvatars(); setPresence(); registerUser();
+      var pa = sel('#profileAvatar');
+      if(pa) pa.innerHTML = '<img src="'+myPfp+'" alt="pfp"><div class="profile-status-dot status-online"></div>';
+      renderMessages();
+    };
+    reader.readAsDataURL(file); pfpInput.value = '';
+  });
+
+  sel('#userAvatar').addEventListener('click', function(){ openProfile('you'); });
+
+  /* ---- SETTINGS DROPDOWN ---- */
+  var settingsDropdown = sel('#settingsDropdown');
+  sel('#settingsBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    settingsDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', function(e) {
+    if (!settingsDropdown.contains(e.target)) settingsDropdown.classList.remove('open');
+  });
+
+  sel('#awayBtn').addEventListener('click', function() {
+    myStatus = myStatus === 'away' ? 'online' : 'away';
+    refreshMyAvatars();
+    setPresence();
+    var btn = sel('#awayBtn');
+    btn.classList.toggle('away-active', myStatus === 'away');
+    btn.innerHTML = '<span class="settings-icon">&#127769;</span> ' + (myStatus === 'away' ? 'Set Online' : 'Set Away');
+    settingsDropdown.classList.remove('open');
+  });
+
+  sel('#pfpBtn').addEventListener('click', function() {
+    pfpInput.click();
+    settingsDropdown.classList.remove('open');
+  });
+
+  sel('#notifBtn').addEventListener('click', function() {
+    notificationsOn = !notificationsOn;
+    var btn = sel('#notifBtn');
+    btn.classList.toggle('notif-on', notificationsOn);
+    btn.innerHTML = '<span class="settings-icon">&#128276;</span> Notifications: '+(notificationsOn ? 'On' : 'Off');
+    if (notificationsOn && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    settingsDropdown.classList.remove('open');
+  });
+
+  sel('#deafenBtn').addEventListener('click', function() {
+    var btn = sel('#deafenBtn');
+    btn.classList.toggle('away-active');
+    settingsDropdown.classList.remove('open');
+  });
+
+  /* ═══════════════════════════════════════════
+     TRADING SYSTEM  (work-in-progress)
+     ═══════════════════════════════════════════ */
+  var offeringItems = [];
+  var wantingItems  = [];
+  var unsubTrades   = null;
+  var localTrades   = [];
+
+  // --- Trade modal open / close ---
+  var tradeModal = sel('#tradeModal');
+  sel('#newTradeBtn').addEventListener('click', function() {
+    populateTradePartners();
+    offeringItems = []; wantingItems = [];
+    renderTradeItemTags('offeringItemsWrap', offeringItems);
+    renderTradeItemTags('wantingItemsWrap', wantingItems);
+    sel('#tradeNote').value = '';
+    tradeModal.classList.add('open');
+  });
+  sel('#tradeCancelBtn').addEventListener('click', function() { tradeModal.classList.remove('open'); });
+  tradeModal.addEventListener('click', function(e) { if(e.target === tradeModal) tradeModal.classList.remove('open'); });
+
+  function populateTradePartners() {
+    var select = sel('#tradePartnerSelect');
+    select.innerHTML = '<option value="">Select a user...</option>';
+    Object.keys(allKnownUsers).forEach(function(uid) {
+      if (uid === myUid) return;
+      var opt = document.createElement('option');
+      opt.value = uid;
+      opt.textContent = allKnownUsers[uid].name;
+      select.appendChild(opt);
+    });
+  }
+
+  // --- Item tag input (offering / wanting) ---
+  function renderTradeItemTags(wrapperId, items) {
+    var wrap = sel('#' + wrapperId);
+    var input = wrap.querySelector('input');
+    Array.from(wrap.querySelectorAll('.trade-item-tag')).forEach(function(t) { t.remove(); });
+    items.forEach(function(item, idx) {
+      var tag = document.createElement('span');
+      tag.className = 'trade-item-tag';
+      tag.innerHTML = escapeHtml(item) + '<button data-idx="'+idx+'">&times;</button>';
+      wrap.insertBefore(tag, input);
+    });
+    // remove handlers
+    wrap.querySelectorAll('.trade-item-tag button').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        items.splice(parseInt(btn.dataset.idx), 1);
+        renderTradeItemTags(wrapperId, items);
+      });
+    });
+  }
+
+  sel('#offeringItemsWrap').addEventListener('click', function() { sel('#offeringInput').focus(); });
+  sel('#wantingItemsWrap').addEventListener('click', function() { sel('#wantingInput').focus(); });
+
+  sel('#offeringInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var val = this.value.trim();
+      if (val && offeringItems.length < 10) { offeringItems.push(val); this.value = ''; renderTradeItemTags('offeringItemsWrap', offeringItems); }
+    }
+  });
+  sel('#wantingInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var val = this.value.trim();
+      if (val && wantingItems.length < 10) { wantingItems.push(val); this.value = ''; renderTradeItemTags('wantingItemsWrap', wantingItems); }
+    }
+  });
+
+  // --- Submit trade ---
+  sel('#tradeSubmitBtn').addEventListener('click', function() {
+    // Auto-add any text still sitting in the item inputs
+    var ov = sel('#offeringInput').value.trim();
+    if (ov && offeringItems.length < 10) {
+      offeringItems.push(ov); sel('#offeringInput').value = '';
+      renderTradeItemTags('offeringItemsWrap', offeringItems);
+    }
+    var wv = sel('#wantingInput').value.trim();
+    if (wv && wantingItems.length < 10) {
+      wantingItems.push(wv); sel('#wantingInput').value = '';
+      renderTradeItemTags('wantingItemsWrap', wantingItems);
+    }
+
+    var partnerId = sel('#tradePartnerSelect').value;
+    if (!partnerId) { alert('Select a trade partner.'); return; }
+    if (offeringItems.length === 0 && wantingItems.length === 0) { alert('Add at least one item.'); return; }
+    var tradeData = {
+      fromUid: myUid,
+      fromName: myName,
+      toUid: partnerId,
+      toName: allKnownUsers[partnerId].name,
+      offering: offeringItems.slice(),
+      wanting: wantingItems.slice(),
+      note: sel('#tradeNote').value.trim().substring(0,120),
+      status: 'pending',  // pending | accepted | declined
+      createdAt: FV.serverTimestamp()
+    };
+    db.collection('trades').add(tradeData).then(function() {
+      tradeModal.classList.remove('open');
+    }).catch(function(err) { console.error('Trade submit error:', err); });
+  });
+
+  var tradeInitialLoad = true;
+  function listenTrades() {
+    if (unsubTrades) unsubTrades();
+    tradeInitialLoad = true;
+    unsubTrades = db.collection('trades')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .onSnapshot(function(snap) {
+        if (!tradeInitialLoad) {
+          snap.docChanges().forEach(function(change) {
+            if (change.type === 'added') {
+              var d = change.doc.data();
+              if (d.toUid === myUid && d.status === 'pending') {
+                showToast('⚖ Trade from ' + (d.fromName || '?'), d.offering.join(', ') + ' ⇄ ' + d.wanting.join(', '), 'Trading', null);
+              }
+            }
+            if (change.type === 'modified') {
+              var d = change.doc.data();
+              if (d.fromUid === myUid && (d.status === 'accepted' || d.status === 'declined')) {
+                var verb = d.status === 'accepted' ? '✅ accepted' : '❌ declined';
+                showToast((d.toName || '?') + ' ' + verb, 'your trade offer', 'Trading', null);
+              }
+            }
+          });
+        }
+        tradeInitialLoad = false;
+        localTrades = [];
+        snap.forEach(function(doc) { localTrades.push({ id: doc.id, ...doc.data() }); });
+        renderTrades();
+      }, function(err) { console.error('Trades listener error:', err); });
+  }
+
+  function renderTrades() {
+    var myTrades = localTrades.filter(function(t) { return t.fromUid === myUid || t.toUid === myUid; });
+    var openOffers = localTrades.filter(function(t) { return t.status === 'pending' && t.toUid === myUid; });
+
+    var myList = sel('#myTradesList');
+    var openList = sel('#openTradesList');
+
+    if (myTrades.length === 0) {
+      myList.innerHTML = '<p class="trade-empty">No trades yet.</p>';
+    } else {
+      myList.innerHTML = myTrades.map(function(t) {
+        return buildTradeCard(t, false);
+      }).join('');
+    }
+
+    if (openOffers.length === 0) {
+      openList.innerHTML = '<p class="trade-empty">No incoming offers.</p>';
+    } else {
+      openList.innerHTML = openOffers.map(function(t) {
+        return buildTradeCard(t, true);
+      }).join('');
+    }
+
+    attachTradeCardListeners();
+  }
+
+  function buildTradeCard(t, showActions) {
+    var isSender = t.fromUid === myUid;
+    var partnerName = isSender ? t.toName : t.fromName;
+    var initial = partnerName ? partnerName[0].toUpperCase() : '?';
+    var partnerUid = isSender ? t.toUid : t.fromUid;
+    var partner = allKnownUsers[partnerUid];
+    var pfp = partner && partner.pfp;
+    var avatarHtml = pfp ? '<img src="'+pfp+'" alt="pfp">' : initial;
+
+    var statusCls = t.status;
+    var statusLabel = t.status.charAt(0).toUpperCase() + t.status.slice(1);
+
+    var offerLabel = isSender ? 'Offering' : 'They offer';
+    var wantLabel = isSender ? 'Wanting' : 'They want';
+
+    var html = '<div class="trade-card" data-tradeid="'+t.id+'">'+
+      '<div class="trade-card-header">'+
+        '<div class="trade-card-user"><div class="trade-card-avatar">'+avatarHtml+'</div><span class="trade-card-name">'+escapeHtml(partnerName)+'</span></div>'+
+        '<span class="trade-status '+statusCls+'">'+escapeHtml(statusLabel)+'</span>'+
+      '</div>'+
+      '<div class="trade-card-items">'+
+        (t.offering.length > 0 ? t.offering.map(function(i){ return '<span class="trade-item-pill">'+escapeHtml(i)+'</span>'; }).join('') : '<span class="trade-item-pill" style="opacity:.4;">nothing</span>')+
+        '<span class="trade-arrow">&#8644;</span>'+
+        (t.wanting.length > 0 ? t.wanting.map(function(i){ return '<span class="trade-item-pill">'+escapeHtml(i)+'</span>'; }).join('') : '<span class="trade-item-pill" style="opacity:.4;">nothing</span>')+
+      '</div>'+
+      (t.note ? '<div class="trade-card-note">"'+escapeHtml(t.note)+'"</div>' : '')+
+      '<div class="trade-card-time">'+formatTime(t.createdAt)+'</div>';
+
+    // Action buttons
+    if (t.status === 'pending') {
+      if (!isSender) {
+        // Receiver can accept or decline
+        html += '<div class="trade-card-actions">'+
+          '<button class="trade-accept-btn" data-tradeid="'+t.id+'">&#10003; Accept</button>'+
+          '<button class="trade-decline-btn" data-tradeid="'+t.id+'">&#10007; Decline</button>'+
+        '</div>';
+      } else {
+        // Sender can cancel
+        html += '<div class="trade-card-actions">'+
+          '<button class="trade-cancel-trade-btn" data-tradeid="'+t.id+'">Cancel</button>'+
+        '</div>';
+      }
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function attachTradeCardListeners() {
+    selA('.trade-accept-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        acceptTrade(btn.dataset.tradeid);
+      });
+    });
+    selA('.trade-decline-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        declineTrade(btn.dataset.tradeid);
+      });
+    });
+    selA('.trade-cancel-trade-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        cancelTrade(btn.dataset.tradeid);
+      });
+    });
+  }
+
+  function acceptTrade(tradeId) {
+    db.collection('trades').doc(tradeId).update({ status: 'accepted' })
+      .catch(function(err) { console.error('Accept trade error:', err); });
+  }
+
+  function declineTrade(tradeId) {
+    db.collection('trades').doc(tradeId).update({ status: 'declined' })
+      .catch(function(err) { console.error('Decline trade error:', err); });
+  }
+
+  function cancelTrade(tradeId) {
+    if (!confirm('Cancel this trade offer?')) return;
+    db.collection('trades').doc(tradeId).delete()
+      .catch(function(err) { console.error('Cancel trade error:', err); });
+  }
+
+  /* ---- AUTH + BOOTSTRAP ---- */
+  auth.onAuthStateChanged(function(user) {
+    if (!user) { window.location.href='index.html'; return; }
+    myUid  = user.uid;
+    myName = user.displayName || user.email.split('@')[0];
+    refreshMyAvatars();
+    registerUser();          // persist to 'users' collection (all-time member list)
+    setPresence();
+    setInterval(setPresence, 30000);
+    if (Notification.permission === 'default') Notification.requestPermission();
+    listenMessages(currentChannel);
+    listenPresence();
+    listenAllUsers();        // listen to all registered users
+    listenDmList();          // listen to DM conversations
+    listenTrades();          // listen to trade offers
+    listenModeration();      // listen to moderation actions
+  });
+
+  window.addEventListener('beforeunload', removePresence);
+
+  document.getElementById('logoutBtn').addEventListener('click', function() {
+    removePresence();
+    if(unsubMessages) unsubMessages();
+    if(unsubPresence) unsubPresence();
+    if(unsubAllUsers) unsubAllUsers();
+    if(unsubDmList) unsubDmList();
+    if(unsubTrades) unsubTrades();
+    if(unsubModeration) unsubModeration();
+    auth.signOut().then(function(){window.location.href='index.html';});
+  });
+
+})();
+</script>
+
+<script>
+  selA('.sidebar-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      selA('.sidebar-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      currentView = tab.dataset.tab;
+      sel('#channelsPanel').classList.add('hidden');
+      sel('#dmsPanel').classList.add('hidden');
+      sel('#tradingPanel').classList.add('hidden');
+      if (currentView==='channels') {
+        sel('#channelsPanel').classList.remove('hidden');
+        membersPanel.style.display = '';
+        currentDm = null;
+        updateChatHeader();
+        listenMessages(currentChannel);
+      } else if (currentView==='trading') {
+        sel('#tradingPanel').classList.remove('hidden');
+        membersPanel.style.display = 'none';
+      } else {
+        sel('#dmsPanel').classList.remove('hidden');
+        membersPanel.style.display = 'none';
+        updateChatHeader();
+        if (unsubMessages) { unsubMessages(); unsubMessages = null; }
+        localMessages = [];
+        if (!currentDm) {
+          messagesEl.innerHTML = '<div class="welcome-msg"><h3>Direct Messages</h3><p>Trade Items with other users.</p></div>';
+        }
+      }
+    });
+  });
+</script>
+
+
+</body>
+</html>
