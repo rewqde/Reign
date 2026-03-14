@@ -19,4 +19,4 @@ and select it to show for you exclusively. (Note that Spark has no Storage on Fi
 
 --EXTENDED FOR REVIEWER--
 For the popup on avatar click on the bottom left and it should look like this
-
+![image alt](https://github.com/rewqde/Reign/blob/68c09279c0a40923093e482124b4097dc636bc08/Screenshot%202026-03-14%20123807.png)
