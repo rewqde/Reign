@@ -1331,12 +1331,12 @@
 
   /* Firebase */
   firebase.initializeApp({
-    apiKey: "urapi",
-    authDomain: "urdomain",
-    projectId: "urid",
-    storageBucket: "urstoragebucket",
-    messagingSenderId: "urmessageid",
-    appId: "urappid"
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
   });
   const auth = firebase.auth();
   const db   = firebase.firestore(); 
@@ -2481,7 +2481,36 @@
     reader.readAsDataURL(file); pfpInput.value = '';
   });
 
-  sel('#userAvatar').addEventListener('click', function(){ openProfile('you'); });
+  sel('#userAvatar').addEventListener('click', function(){ 
+    openProfile('you'); 
+    // Show local-only popup
+    showrandomahhAvatarPopup();
+  });
+
+  // --- Local avatar popup ---
+  function showrandomahhAvatarPopup() {
+    if (document.getElementById('randomahhAvatarPopup')) return;
+    var popup = document.createElement('div');
+    popup.id = 'randomahhAvatarPopup';
+    popup.textContent = 'This avatar is only visible to you (local) sorry :(';
+    popup.style.position = 'fixed';
+    popup.style.bottom = '90px';
+    popup.style.left = '50%';
+    popup.style.transform = 'translateX(-50%)';
+    popup.style.background = 'rgba(30,40,80,0.97)';
+    popup.style.color = '#90caf9';
+    popup.style.padding = '14px 28px';
+    popup.style.borderRadius = '14px';
+    popup.style.fontSize = '1rem';
+    popup.style.boxShadow = '0 4px 24px rgba(0,0,0,0.25)';
+    popup.style.zIndex = '9999';
+    popup.style.textAlign = 'center';
+    popup.style.pointerEvents = 'none';
+    document.body.appendChild(popup);
+    setTimeout(function(){
+      if (popup.parentNode) popup.parentNode.removeChild(popup);
+    }, 2600);
+  }
 
   /* ---- SETTINGS DROPDOWN ---- */
   var settingsDropdown = sel('#settingsDropdown');
