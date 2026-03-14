@@ -16,3 +16,7 @@ and select it to show for you exclusively. (Note that Spark has no Storage on Fi
 
 
 (Sorry for not splitting the files)
+
+--EXTENDED FOR REVIEWER--
+For the popup on avatar click on the bottom left and it should look like this
+
